@@ -410,7 +410,7 @@ metadata:
   title: 'WallTracer: trace any picture onto your wall in VR'
 name: WallTracer
 native_deps:
-  head_html: "<script src=\"_/theme/legal-kit.js?v=8db9fd2bed\"></script>\n<meta name=\"viewport\" content=\"width=device-width,\
+  head_html: "<script src=\"_/theme/legal-kit.js?v=e95389c099\"></script>\n<meta name=\"viewport\" content=\"width=device-width,\
     \ initial-scale=1, viewport-fit=cover\">\n<meta name=\"theme-color\" content=\"#efe9e1\">\n<meta name=\"apple-mobile-web-app-capable\"\
     \ content=\"yes\">\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"\
     https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..800,0..100,0..1&family=Inter:wght@400;500;600;700&display=swap\"\
