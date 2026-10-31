@@ -6,7 +6,7 @@ down and trace it with a pencil. One button (A/X) or a pinch of your free hand h
 For DIY muralists, parents painting a kid's room, sign painters, and anyone hanging a gallery wall. Built on [Anvil](https://anvil.works).
 
 - **App repo:** github.com/arkulinskis/walltracer (branch `master`). Anvil pulls `master`.
-- **Live:** not published yet (Anvil URL to come).
+- **Live:** https://walltracer.anvil.app
 
 ## What it does
 
