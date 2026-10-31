@@ -440,6 +440,7 @@
         '<a href="#library" data-go="library">Stencil library</a>' +
         '<a href="#showcase" data-go="showcase">Showcase</a>' +
         '<a href="#guide" data-go="guide">Guide</a>' +
+        '<a href="https://prepsto.com/#f/4rxd8g8" target="_blank" rel="noopener" data-prepsto-open>Suggest an idea</a>' +
         '<button type="button" data-feedback>Send feedback</button>' +
         '<button type="button" data-lk-open="overview">Privacy &amp; Terms</button>' +
         '</div><p class="ui-footer-legal small muted">© ' + new Date().getFullYear() + ' ' + esc(UI.config.name) + '</p></div>';
