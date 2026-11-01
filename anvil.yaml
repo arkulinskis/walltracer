@@ -410,7 +410,7 @@ metadata:
   title: 'WallTracer: trace any picture onto your wall in VR'
 name: WallTracer
 native_deps:
-  head_html: "<script src=\"_/theme/legal-kit.js?v=54986acb6e\"></script>\n<!-- seo:start (APP_MAKER/seo: edit seo/apps/walltracer.json\
+  head_html: "<script src=\"_/theme/legal-kit.js?v=8f5c2e747d\"></script>\n<!-- seo:start (APP_MAKER/seo: edit seo/apps/walltracer.json\
     \ and run seo.py, not here) -->\n<link rel=\"canonical\" href=\"https://walltracer.anvil.app/\">\n<meta name=\"robots\"\
     \ content=\"index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1\">\n<meta name=\"keywords\" content=\"\
     mural projector alternative, trace picture on wall, Meta Quest passthrough app, mixed reality drawing, paint a mural,\
