@@ -410,10 +410,43 @@ metadata:
   title: 'WallTracer: trace any picture onto your wall in VR'
 name: WallTracer
 native_deps:
-  head_html: "<script src=\"_/theme/legal-kit.js?v=54986acb6e\"></script>\n<meta name=\"viewport\" content=\"width=device-width,\
-    \ initial-scale=1, viewport-fit=cover\">\n<meta name=\"theme-color\" content=\"#efe9e1\">\n<meta name=\"apple-mobile-web-app-capable\"\
-    \ content=\"yes\">\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"\
-    https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..800,0..100,0..1&family=Inter:wght@400;500;600;700&display=swap\"\
+  head_html: "<script src=\"_/theme/legal-kit.js?v=54986acb6e\"></script>\n<!-- seo:start (APP_MAKER/seo: edit seo/apps/walltracer.json\
+    \ and run seo.py, not here) -->\n<link rel=\"canonical\" href=\"https://walltracer.anvil.app/\">\n<meta name=\"robots\"\
+    \ content=\"index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1\">\n<meta name=\"keywords\" content=\"\
+    mural projector alternative, trace picture on wall, Meta Quest passthrough app, mixed reality drawing, paint a mural,\
+    \ wall stencil, DIY mural, AR tracing app, gallery wall planner\">\n<meta name=\"author\" content=\"Arkvital\">\n<meta\
+    \ property=\"og:type\" content=\"website\">\n<meta property=\"og:site_name\" content=\"WallTracer\">\n<meta property=\"\
+    og:title\" content=\"WallTracer: trace any picture onto your wall in VR\">\n<meta property=\"og:description\" content=\"\
+    Pin a picture to your real wall with your Quest headset, put the controllers down and trace it with a pencil. Hide it\
+    \ with one button to check your lines.\">\n<meta property=\"og:locale\" content=\"en_CA\">\n<meta property=\"og:url\"\
+    \ content=\"https://walltracer.anvil.app/\">\n<meta property=\"og:image\" content=\"https://walltracer.anvil.app/_/theme/og-image.png\"\
+    >\n<meta property=\"og:image:width\" content=\"1200\"><meta property=\"og:image:height\" content=\"630\">\n<meta property=\"\
+    og:image:alt\" content=\"WallTracer: A virtual projector: pin a picture to your wall and trace it\">\n<meta name=\"twitter:card\"\
+    \ content=\"summary_large_image\">\n<meta name=\"twitter:title\" content=\"WallTracer: trace any picture onto your wall\
+    \ in VR\">\n<meta name=\"twitter:description\" content=\"Pin a picture to your real wall with your Quest headset, put\
+    \ the controllers down and trace it with a pencil. Hide it with one button to check your lines.\">\n<meta name=\"twitter:image\"\
+    \ content=\"https://walltracer.anvil.app/_/theme/og-image.png\">\n<link rel=\"alternate\" type=\"text/plain\" title=\"\
+    WallTracer for AI assistants\" href=\"https://walltracer.anvil.app/llms.txt\">\n<script type=\"application/ld+json\">{\"\
+    @context\": \"https://schema.org\", \"@graph\": [{\"@type\": \"WebApplication\", \"@id\": \"https://walltracer.anvil.app/#app\"\
+    , \"name\": \"WallTracer\", \"url\": \"https://walltracer.anvil.app/\", \"description\": \"Pin a picture to your real\
+    \ wall with your Quest headset, put the controllers down and trace it with a pencil. Hide it with one button to check\
+    \ your lines.\", \"image\": \"https://walltracer.anvil.app/_/theme/og-image.png\", \"inLanguage\": \"en\", \"publisher\"\
+    : {\"@id\": \"https://arkvital.com/#org\"}, \"keywords\": \"mural projector alternative, trace picture on wall, Meta Quest\
+    \ passthrough app, mixed reality drawing, paint a mural, wall stencil, DIY mural, AR tracing app, gallery wall planner\"\
+    , \"applicationCategory\": \"DesignApplication\", \"operatingSystem\": \"Any (web browser)\", \"browserRequirements\"\
+    : \"Requires JavaScript and a modern web browser\", \"featureList\": [\"Pin a picture to a real wall at its real size\
+    \ in Quest passthrough\", \"Hands-free tracing: put the controllers down and use a pencil\", \"Hide and show the picture\
+    \ with one button or a pinch\", \"Five looks: lines, outline, tones, silhouette and photo\", \"A stencil library and a\
+    \ lettering maker\", \"A gallery-wall planner with nail spots\"], \"audience\": {\"@type\": \"Audience\", \"audienceType\"\
+    : \"DIY muralists, parents painting a kid's room, sign painters and anyone hanging a gallery wall\"}}, {\"@type\": \"\
+    WebSite\", \"@id\": \"https://walltracer.anvil.app/#site\", \"url\": \"https://walltracer.anvil.app/\", \"name\": \"WallTracer\"\
+    , \"publisher\": {\"@id\": \"https://arkvital.com/#org\"}}, {\"@type\": \"Organization\", \"@id\": \"https://arkvital.com/#org\"\
+    , \"name\": \"Arkvital\", \"url\": \"https://arkvital.com\", \"email\": \"arkvital@outlook.com\", \"address\": {\"@type\"\
+    : \"PostalAddress\", \"addressLocality\": \"Montreal\", \"addressRegion\": \"QC\", \"addressCountry\": \"CA\"}}]}</script>\n\
+    <!-- seo:end -->\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">\n<meta\
+    \ name=\"theme-color\" content=\"#efe9e1\">\n<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n<link rel=\"\
+    preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n\
+    <link href=\"https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..800,0..100,0..1&family=Inter:wght@400;500;600;700&display=swap\"\
     \ rel=\"stylesheet\">\n<link id=\"ui-favicon\" rel=\"icon\" type=\"image/svg+xml\" href=\"_/theme/icon.svg?v=dbb62f9d6b\"\
     >\n<link rel=\"apple-touch-icon\" href=\"_/theme/icon-180.png?v=dbb62f9d6b\">\n<script>\n/* Keep our tab icon: Anvil adds\
     \ its own <link rel=\"icon\">, so drop any other icon link. */\n(function () {\n  function keep() {\n    var ours = document.getElementById('ui-favicon');\n\
