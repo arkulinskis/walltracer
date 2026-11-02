@@ -410,7 +410,7 @@ metadata:
   title: 'WallTracer: trace any picture onto your wall in VR'
 name: WallTracer
 native_deps:
-  head_html: "<script src=\"_/theme/legal-kit.js?v=8f5c2e747d\"></script>\n<!-- seo:start (APP_MAKER/seo: edit seo/apps/walltracer.json\
+  head_html: "<script src=\"_/theme/legal-kit.js?v=79d2a9f89f\"></script>\n<!-- seo:start (APP_MAKER/seo: edit seo/apps/walltracer.json\
     \ and run seo.py, not here) -->\n<link rel=\"canonical\" href=\"https://walltracer.anvil.app/\">\n<meta name=\"robots\"\
     \ content=\"index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1\">\n<meta name=\"keywords\" content=\"\
     mural projector alternative, trace picture on wall, Meta Quest passthrough app, mixed reality drawing, paint a mural,\
@@ -455,7 +455,7 @@ native_deps:
     })();\n</script>\n\n<!-- Prepsto feedback panel: every \"Submit feedback\" link and button opens it (it is the only feedback\
     \ channel). No floating button, no cookies, nothing loads until it is opened. Codes: APP_MAKER/prepsto-links.json -->\n\
     <script src=\"https://prepsto.com/_/theme/widget.js\" data-prepsto=\"4rxd8g8\" data-button=\"false\" data-label=\"Submit\
-    \ feedback\" async></script>\n<link rel=\"stylesheet\" href=\"_/theme/app.css?v=0802ec357e\">\n<script src=\"_/theme/app.js?v=4313b9e204\"\
+    \ feedback\" async></script>\n<link rel=\"stylesheet\" href=\"_/theme/app.css?v=abd73165aa\">\n<script src=\"_/theme/app.js?v=4281c52931\"\
     ></script>\n"
 package_name: WallTracer
 runtime_options:
@@ -476,9 +476,13 @@ services:
     remember_me_days: 30
     require_secure_passwords: true
     use_email: true
+    use_google: true
   server_config:
     user_table: users
   source: /runtime/services/anvil/users.yml
+- client_config: {}
+  server_config: {}
+  source: /runtime/services/google.yml
 startup:
   module: Main
   type: form
