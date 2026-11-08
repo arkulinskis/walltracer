@@ -2782,14 +2782,17 @@
 
     /* ================================================================== the headset */
     function enterXR(kind) {
+      if (xr.session || xr.entering) return;  // already in, or on the way in
+      xr.entering = true;
       var init = { optionalFeatures: ['local-floor', 'hand-tracking', 'hit-test', 'anchors', 'plane-detection', 'dom-overlay'] };
       if (kind === 'ar') init.domOverlay = { root: ov };
       navigator.xr.requestSession(kind === 'ar' ? 'immersive-ar' : 'immersive-vr', init).then(function (s) {
         if (!alive) { s.end(); return; }
         var feats = s.enabledFeatures;
         renderer.xr.setReferenceSpaceType(!feats || feats.indexOf('local-floor') >= 0 ? 'local-floor' : 'local');
-        return renderer.xr.setSession(s).then(function () { startXR(s, kind); });
+        return renderer.xr.setSession(s).then(function () { xr.entering = false; startXR(s, kind); });
       }).catch(function (e) {
+        xr.entering = false;
         UI.toast('Couldn\'t start the headset view: ' + (e && e.message || 'the browser said no'), 'error');
       });
     }
@@ -2802,7 +2805,7 @@
       xr.hitSources = new Map(); xr.pendingHit = new Set(); xr.inputs = {}; xr.buttons = {}; xr.head = null;
       if (xr.hasHitTest) {
         s.requestReferenceSpace('viewer').then(function (v) { return s.requestHitTestSource({ space: v }); })
-          .then(function (hs) { xr.viewerHit = hs; }).catch(function () {});
+          .then(function (hs) { if (s === xr.session) xr.viewerHit = hs; else hs.cancel(); }).catch(function () {});
       }
       st.method = xr.hasHitTest ? 'aim' : 'touch';
       ov.innerHTML = '<div class="tr-hud"><button class="tr-x" data-endxr aria-label="Leave the headset view">' + UI.icon('x') + '</button>' +
@@ -2818,11 +2821,14 @@
       try { handle = localStorage.getItem('walltracer.anchor.' + P.id); } catch (e) {}
       if (handle && s.restorePersistentAnchor) {
         xr.restoring = true; st.phase = 'locked'; art.visible = false;
-        s.restorePersistentAnchor(handle).then(function (a) { xr.anchor = a; xr.anchorFresh = true; }, function () {
+        // every reply below checks it still belongs to this session: a late one from a session you already left
+        // would hand three.js objects from the old session
+        s.restorePersistentAnchor(handle).then(function (a) { if (s !== xr.session) return; xr.anchor = a; xr.anchorFresh = true; }, function () {
+          if (s !== xr.session) return;
           xr.restoring = false; st.phase = 'place'; forgetHandle(); xr.needPanel = true;
         });
         setTimeout(function () {  // a different room, or the headset forgot it
-          if (!xr.restoring || st.mode !== 'xr') return;
+          if (!xr.restoring || st.mode !== 'xr' || s !== xr.session) return;
           xr.restoring = false; dropAnchor(true); st.phase = 'place'; art.visible = false; applyVis(); openPanel();
           say('Could not find your last spot. Place the picture again and line it up with your crosses.');
         }, 6000);
@@ -2862,7 +2868,7 @@
       if (!frame.createAnchor || typeof XRRigidTransform === 'undefined') return;
       var p = art.position, q = art.quaternion;
       frame.createAnchor(new XRRigidTransform({ x: p.x, y: p.y, z: p.z }, { x: q.x, y: q.y, z: q.z, w: q.w }), ref).then(function (a) {
-        if (st.phase !== 'locked') { try { a.delete(); } catch (e) {} return; }
+        if (st.phase !== 'locked' || frame.session !== xr.session) { try { a.delete(); } catch (e) {} return; }
         dropAnchor(true);
         xr.anchor = a;
         if (a.requestPersistentHandle) a.requestPersistentHandle().then(function (h) {
@@ -2881,6 +2887,7 @@
     var tmpM = null, rc = null;
     function xrFrame(frame, dt) {
       var ref = renderer.xr.getReferenceSpace(), s = frame.session;
+      if (s !== xr.session) return;
       tmpM = tmpM || new T.Matrix4(); rc = rc || new T.Raycaster();
       var vp = frame.getViewerPose(ref);
       if (vp) {
@@ -2919,7 +2926,7 @@
           var hs = xr.hitSources.get(src);
           if (!hs && !xr.pendingHit.has(src)) {
             xr.pendingHit.add(src);
-            s.requestHitTestSource({ space: src.targetRaySpace }).then(function (srcRef) { return function (x) { xr.hitSources.set(srcRef, x); }; }(src)).catch(function () {});
+            s.requestHitTestSource({ space: src.targetRaySpace }).then(function (srcRef) { return function (x) { if (s === xr.session) xr.hitSources.set(srcRef, x); else x.cancel(); }; }(src)).catch(function () {});
           }
           var res = hs ? frame.getHitTestResults(hs) : [];
           if (res.length) {
