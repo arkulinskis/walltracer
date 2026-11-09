@@ -227,7 +227,8 @@
 (function () {
   'use strict';
   var esc = UI.esc;
-  var PANEL_W = 1024, PANEL_M = 0.56;  // menu canvas px and its width in metres
+  var PANEL_W = 1024;  // menu canvas px
+  var AKEY = 'walltracer.anchor.', PKEY = 'walltracer.anchorphase.';  // this browser: saved wall spot + its step
 
   UI.page('trace', { title: 'Trace', chrome: false }, function (view, ctx) {
     var id = ctx.args[0];
@@ -251,7 +252,8 @@
     var looks = {};
     var xr = { session: null, inputs: {}, hitSources: new Map(), pendingHit: new Set(), viewerHit: null, anchor: null, wantAnchor: false,
       buttons: {}, grab: null, selStart: new Map(), hasHitTest: false, panelMesh: null, panelCanvas: null, panelButtons: [], toastMesh: null,
-      toastCanvas: null, rays: {}, head: null, headQ: null, needPanel: false, restoring: false, stickLatch: {} };
+      toastCanvas: null, rays: {}, head: null, headQ: null, needPanel: false, restoring: false, stickLatch: {},
+      poseGen: 0, moveT: 0, anchorPending: false, lostT: 0, yDown: 0, yWarned: false, tips: {}, tipsUntil: 0, panelWorld: null };
     var flat = { yaw: 0, pitch: -0.08, fov: 58, drag: null, ptr: null, raycaster: null, ndc: null, lastDraw: null };
 
     view.innerHTML = '<div class="tr"><canvas class="tr-cv" tabindex="0" aria-label="Tracing view"></canvas><div class="tr-ov" data-ov></div></div>';
@@ -290,7 +292,7 @@
       } else TX.art.image = C.art;
       TX.art.needsUpdate = true;
     }
-    function artVisible() { return st.phase !== 'locked' || (st.shown && !st.blinkOff); }
+    function artVisible() { return st.phase === 'place' || (st.shown && !st.blinkOff && !st.peek); }
     function refreshOverlay() {
       var g = C.ov.getContext('2d'), m = C.margin;
       g.clearRect(0, 0, C.ov.width, C.ov.height);
@@ -443,13 +445,27 @@
       art.position.copy(pos).addScaledVector(n, 0.001);
       applyOrientation();
       art.visible = true;
+      moved();
+    }
+    /* In the headset the picture is held by a real-world anchor as soon as it's placed (not only once locked), so
+       it stays on the wall when the headset recentres, e.g. after you step out of the boundary and back. Any move
+       drops the anchor; a new one is made once the picture has been still for a moment. */
+    function moved() {
+      xr.poseGen++; xr.moveT = performance.now();
+      if (xr.anchor) { try { xr.anchor.delete(); } catch (e) {} xr.anchor = null; }
     }
     function placeAt(pos, normal, free) {
       setPose(pos, normal, free);
-      st.phase = 'adjust'; st.touchPts = []; clearTouchDots();
+      st.phase = 'adjust'; st.shown = true; st.touchPts = []; clearTouchDots();
       applyVis(); changed();
-      say(st.mode === 'xr' ? 'Placed. Grip to slide it, right stick to resize and turn. Lock it when it\'s right.' : 'Placed. Drag it to move, scroll to resize, Q / E to turn. Then lock it.');
-      if (st.mode === 'xr') openPanel();
+      say(st.mode === 'xr' ? 'Stuck! Pull the trigger anywhere on the wall to move it there. Click the right stick to lock.' : 'Placed. Drag it to move, scroll to resize, Q / E to turn. Then lock it.');
+      if (st.mode === 'xr') haptic(null, 0.6, 60);
+    }
+    /* adjust phase: pull the trigger at another spot and the picture jumps there, keeping its size and turn */
+    function stickAt(hit) {
+      setPose(hit.pos, hit.normal, false);
+      st.shown = true; applyVis(); changed(); haptic(null, 0.5, 40);
+      say('Moved here. Click the right stick to lock it.');
     }
     function placeFloat() {
       var h = headPos(), fwd = new V3(0, 0, -1);
@@ -482,6 +498,7 @@
         a.push({ id: 'look', label: 'Look: ' + WT.lookLabel(S.look), icon: 'sparkle', key: 'M' });
       } else if (st.phase === 'adjust') {
         a.push({ id: 'lock', label: 'Lock in place', icon: 'lock', primary: true, key: 'L' });
+        if (inXR) a.push({ id: 'toggle', label: st.shown ? 'Hide picture' : 'Show picture', icon: st.shown ? 'eyeoff' : 'eye' });
         a.push({ id: 'replace', label: 'Place again', icon: 'target' });
         a.push({ id: 'smaller', label: 'Smaller', icon: 'chevron', key: '-' }, { id: 'bigger', label: 'Bigger', icon: 'plus', key: '+' });
         a.push({ id: 'turnL', label: 'Turn left', icon: 'rotate', key: 'Q' }, { id: 'turnR', label: 'Turn right', icon: 'rotate', key: 'E' }, { id: 'level', label: 'Level', icon: 'ruler' });
@@ -498,14 +515,15 @@
         a.push({ id: 'unlock', label: 'Unlock', icon: 'lockopen', key: 'L' });
       }
       if (window.ArkMusic) a.push({ id: 'music', label: musicOn() ? 'Music on' : 'Music', icon: 'music', on: musicOn() });
-      if (inXR) a.push({ id: 'close', label: 'Close menu', icon: 'x' });
-      a.push({ id: 'exit', label: 'Finish', icon: 'flag' });
+      if (inXR) a.push({ id: 'tips', label: 'Button labels', icon: 'info', on: tipsOn() }, { id: 'close', label: 'Close menu', icon: 'x' });
+      a.push({ id: 'exit', label: inXR ? 'Leave VR' : 'Finish', icon: 'flag', danger: inXR });
       return a;
     }
     /* Focus music while you trace: lo-fi tracks streamed by ArkMusic (web/pages/_arkmusic.html). Off until you
        press Music (remembered in this browser); it keeps playing inside the headset. */
     var MUSIC = ['cosmic', 'bright-road', 'toulouse', 'high-notes'];
     function musicOn() { return !!UI.store.get('trace_music', false); }
+    function tipsOn() { return UI.store.get('trace_tips', true) !== false; }
     function syncMusic() {
       if (!window.ArkMusic) return;
       if (musicOn() && alive) ArkMusic.play(MUSIC, { volume: 0.4, shuffle: true, fade: 2 }); else ArkMusic.stop(1);
@@ -516,9 +534,10 @@
       'm-touch': function () { st.method = 'touch'; st.touchPts = []; clearTouchDots(); say('Touch the wall with the tip of a controller where the centre goes, and pull the trigger.'); },
       'm-float': function () { st.method = 'float'; placeFloat(); },
       lock: function () { lock(); }, unlock: function () { unlock(); },
-      replace: function () { dropAnchor(true); st.phase = 'place'; st.method = st.mode === 'xr' && !xr.hasHitTest ? 'touch' : 'aim'; art.visible = false; applyVis(); say('Choose a new spot.'); },
+      tips: function () { UI.store.set('trace_tips', !tipsOn()); xr.tipsUntil = performance.now() + 8000; say(tipsOn() ? 'Button labels on' : 'Button labels off'); },
+      replace: function () { dropAnchor(true); st.phase = 'place'; st.shown = true; st.method = st.mode === 'xr' && !xr.hasHitTest ? 'touch' : 'aim'; art.visible = false; applyVis(); say('Choose a new spot.'); },
       smaller: function () { resizeBy(1 / 1.04); }, bigger: function () { resizeBy(1.04); },
-      turnL: function () { turnBy(-1); }, turnR: function () { turnBy(1); }, level: function () { S.rot = 0; applyOrientation(); say('Level'); },
+      turnL: function () { turnBy(-1); }, turnR: function () { turnBy(1); }, level: function () { S.rot = 0; applyOrientation(); moved(); say('Level'); },
       out: function () { nudge(0.002); }, 'in': function () { nudge(-0.002); },
       look: cycleLook, opacity: cycleOpacity,
       grid: function () { S.grid = !S.grid; if (!S.grid) st.spot = null; refreshArt(); applyVis(); say(S.grid ? 'Grid on' : 'Grid off'); },
@@ -542,14 +561,14 @@
       if (!st.surface) return;
       st.phase = 'locked'; st.shown = true; st.blinkT = 0;
       applyVis();
-      if (st.mode === 'xr') { xr.wantAnchor = true; setTimeout(function () { if (st.phase === 'locked') closePanel(); }, 900); }
+      if (st.mode === 'xr') { savePhase(); xr.tipsUntil = performance.now() + 6000; setTimeout(function () { if (st.phase === 'locked') closePanel(); }, 900); }
       say(st.mode === 'xr' ? 'Locked. Put the controllers down and trace. A / X or a pinch of your free hand hides it.' : 'Locked. Draw on the wall with the pencil; press H to hide the picture and check.');
       haptic(null, 0.8, 90);
     }
-    function unlock() { dropAnchor(true); st.phase = 'adjust'; st.blinkOff = false; applyVis(); say('Unlocked. Move it, then lock again.'); }
+    function unlock() { st.phase = 'adjust'; st.shown = true; st.peek = false; st.blinkOff = false; applyVis(); savePhase(); say('Unlocked. Pull the trigger on the wall to move it, or hold grip to drag.'); }
     function resizeBy(k) { S.width_cm = Math.max(5, Math.min(1000, S.width_cm * k)); applySize(); say(WT.fmtSize(pseudo())); }
-    function turnBy(d) { S.rot = Math.max(-180, Math.min(180, Math.round((S.rot + d) * 10) / 10)); applyOrientation(); say('Turned ' + S.rot + '°'); }
-    function nudge(m) { if (!st.surface) return; art.position.addScaledVector(st.surface.normal, m); say(m > 0 ? 'Pulled out 2 mm' : 'Pushed in 2 mm'); }
+    function turnBy(d) { S.rot = Math.max(-180, Math.min(180, Math.round((S.rot + d) * 10) / 10)); applyOrientation(); moved(); say('Turned ' + S.rot + '°'); }
+    function nudge(m) { if (!st.surface) return; art.position.addScaledVector(st.surface.normal, m); moved(); say(m > 0 ? 'Pulled out 2 mm' : 'Pushed in 2 mm'); }
     function cycleLook() {
       var keys = WT.LOOKS.map(function (l) { return l.key; });
       S.look = keys[(keys.indexOf(S.look) + 1) % keys.length];
@@ -562,9 +581,9 @@
       S.opacity = o[(i + 1) % o.length]; applyVis(); say('Opacity ' + Math.round(S.opacity * 100) + '%');
     }
     function toggleShown() {
-      if (st.phase !== 'locked') { say('Lock the picture first.'); return; }
+      if (st.phase === 'place') { say('Place the picture first.'); return; }
       st.shown = !st.shown; st.blinkOff = false; st.blinkT = 0; applyVis(); haptic(null, 0.35, 35);
-      say(st.shown ? 'Picture on' : 'Picture hidden: check your lines');
+      say(st.shown ? 'Picture on' : st.phase === 'locked' ? 'Picture hidden: check your lines' : 'Picture hidden. A / X brings it back.');
       changed();
     }
     function firstOpenCell() {
@@ -744,27 +763,32 @@
       var feats = s.enabledFeatures;
       xr.hasHitTest = !!s.requestHitTestSource && (!feats || feats.indexOf('hit-test') >= 0);
       xr.hitSources = new Map(); xr.pendingHit = new Set(); xr.inputs = {}; xr.buttons = {}; xr.head = null;
+      xr.grab = null; xr.anchor = null; xr.anchorPending = false; xr.anchorFail = 0; xr.lostT = 0; xr.yDown = 0; xr.panelWorld = null;
+      xr.startT = performance.now(); xr.tipsUntil = xr.startT + 15000; st.peek = false; st.shown = true;
       if (xr.hasHitTest) {
         s.requestReferenceSpace('viewer').then(function (v) { return s.requestHitTestSource({ space: v }); })
           .then(function (hs) { if (s === xr.session) xr.viewerHit = hs; else hs.cancel(); }).catch(function () {});
       }
       st.method = xr.hasHitTest ? 'aim' : 'touch';
       ov.innerHTML = '<div class="tr-hud"><button class="tr-x" data-endxr aria-label="Leave the headset view">' + UI.icon('x') + '</button>' +
-        '<div class="ttl"><b>' + esc(P.title) + '</b><span>In the headset. Press Y or pinch-and-hold for the menu.</span></div></div>' +
+        '<div class="ttl"><b>' + esc(P.title) + '</b><span>In the headset. Y opens the menu; hold Y to come back here.</span></div></div>' +
         (kind === 'ar' ? '<div class="tr-bar" data-bar></div>' : '');
       if (kind === 'ar') drawBar();
       on(ov, 'beforexrselect', function (e) { if (e.target.closest && e.target.closest('.tr-bar, .tr-hud')) e.preventDefault(); });
       s.addEventListener('selectstart', function (e) { xr.selStart.set(e.inputSource, performance.now()); });
       s.addEventListener('select', function (e) { onSelect(e.inputSource); });
       s.addEventListener('end', onXREnd);
-      // Back on the same wall: a saved anchor puts the picture where it was and locks it.
-      var handle = null;
-      try { handle = localStorage.getItem('walltracer.anchor.' + P.id); } catch (e) {}
+      // Back on the same wall: a saved anchor puts the picture where it was (locked, or still being lined up).
+      var handle = null, phase = null;
+      try { handle = localStorage.getItem(AKEY + P.id); phase = localStorage.getItem(PKEY + P.id); } catch (e) {}
       if (handle && s.restorePersistentAnchor) {
-        xr.restoring = true; st.phase = 'locked'; art.visible = false;
+        xr.restoring = true; st.phase = phase === 'adjust' ? 'adjust' : 'locked'; art.visible = false;
         // every reply below checks it still belongs to this session: a late one from a session you already left
         // would hand three.js objects from the old session
-        s.restorePersistentAnchor(handle).then(function (a) { if (s !== xr.session) return; xr.anchor = a; xr.anchorFresh = true; }, function () {
+        s.restorePersistentAnchor(handle).then(function (a) {
+          if (s !== xr.session) { try { a.delete(); } catch (e) {} return; }
+          xr.anchor = a; xr.anchorFresh = true;
+        }, function () {
           if (s !== xr.session) return;
           xr.restoring = false; st.phase = 'place'; forgetHandle(); xr.needPanel = true;
         });
@@ -777,16 +801,22 @@
       applyVis();
       xr.needPanel = st.phase === 'place';
       var ref = renderer.xr.getReferenceSpace();
+      // The headset recentred (stepping out of the boundary and back can do it). An anchored picture stays on the
+      // wall by itself; one without an anchor (the headset has no anchors) is stuck back with one trigger pull.
       if (ref && ref.addEventListener) ref.addEventListener('reset', function () {
-        if (!xr.anchor && st.phase !== 'place') say('The view was recentred. Unlock and line the picture up with your crosses again.');
+        if (s !== xr.session || xr.anchor || xr.restoring || st.phase === 'place') return;
+        st.phase = 'adjust'; st.shown = true; applyVis(); changed();
+        say('The view moved. Point where the middle of the picture goes and pull the trigger to stick it back.');
       });
     }
     function onXREnd() {
       logProgress(true);
-      xr.session = null; xr.viewerHit = null; xr.anchor = null; xr.hitSources = new Map(); xr.inputs = {};
+      xr.session = null; xr.viewerHit = null; xr.anchor = null; xr.anchorPending = false; xr.hitSources = new Map(); xr.inputs = {};
+      xr.grab = null; xr.yDown = 0; st.peek = false;
       st.panel = false;
       if (xr.panelMesh) xr.panelMesh.visible = false;
       if (xr.toastMesh) xr.toastMesh.visible = false;
+      Object.keys(xr.tips).forEach(function (h) { xr.tips[h].mesh.visible = false; });
       Object.keys(xr.rays).forEach(function (h) { xr.rays[h].visible = false; });
       reticle.visible = false; tipDot.visible = false; clearTouchDots();
       if (!alive) return;
@@ -794,28 +824,38 @@
       camera.position.set(0, 1.55, 1.1); camera.quaternion.identity();
       showSummary();
     }
-    function forgetHandle() { try { localStorage.removeItem('walltracer.anchor.' + P.id); } catch (e) {} }
+    function forgetHandle() { try { localStorage.removeItem(AKEY + P.id); localStorage.removeItem(PKEY + P.id); } catch (e) {} }
+    function savePhase() { try { if (localStorage.getItem(AKEY + P.id)) localStorage.setItem(PKEY + P.id, st.phase); } catch (e) {} }
     function dropAnchor(forget) {
       if (xr.anchor) { try { xr.anchor.delete(); } catch (e) {} xr.anchor = null; }
       if (forget) {
         var old = null;
-        try { old = localStorage.getItem('walltracer.anchor.' + P.id); } catch (e) {}
+        try { old = localStorage.getItem(AKEY + P.id); } catch (e) {}
         if (old && xr.session && xr.session.deletePersistentAnchor) xr.session.deletePersistentAnchor(old).catch(function () {});
         forgetHandle();
       }
     }
+    /* pins the picture where it is now; kept (persistent) so the next visit finds the same spot */
     function makeAnchor(frame, ref) {
-      xr.wantAnchor = false;
-      if (!frame.createAnchor || typeof XRRigidTransform === 'undefined') return;
-      var p = art.position, q = art.quaternion;
+      if (!frame.createAnchor || typeof XRRigidTransform === 'undefined') { xr.anchorFail = 9; return; }
+      var s = frame.session, gen = xr.poseGen, p = art.position, q = art.quaternion;
+      xr.anchorPending = true;
       frame.createAnchor(new XRRigidTransform({ x: p.x, y: p.y, z: p.z }, { x: q.x, y: q.y, z: q.z, w: q.w }), ref).then(function (a) {
-        if (st.phase !== 'locked' || frame.session !== xr.session) { try { a.delete(); } catch (e) {} return; }
-        dropAnchor(true);
+        if (s !== xr.session) { try { a.delete(); } catch (e) {} return; }
+        xr.anchorPending = false; xr.anchorFail = 0;
+        if (gen !== xr.poseGen || st.phase === 'place' || xr.anchor) { try { a.delete(); } catch (e) {} return; }  // it moved meanwhile
         xr.anchor = a;
         if (a.requestPersistentHandle) a.requestPersistentHandle().then(function (h) {
-          try { localStorage.setItem('walltracer.anchor.' + P.id, h); } catch (e) {}
+          if (a !== xr.anchor || s !== xr.session) { if (s.deletePersistentAnchor) s.deletePersistentAnchor(h).catch(function () {}); return; }
+          var old = null;
+          try { old = localStorage.getItem(AKEY + P.id); } catch (e) {}
+          if (old && old !== h && s.deletePersistentAnchor) s.deletePersistentAnchor(old).catch(function () {});
+          try { localStorage.setItem(AKEY + P.id, h); localStorage.setItem(PKEY + P.id, st.phase); } catch (e) {}
         }).catch(function () {});
-      }).catch(function () {});
+      }).catch(function () {
+        if (s !== xr.session) return;
+        xr.anchorPending = false; xr.anchorFail = (xr.anchorFail || 0) + 1; xr.moveT = performance.now();
+      });
     }
 
     function rayLine(h) {
@@ -825,31 +865,54 @@
       l.renderOrder = 30; l.frustumCulled = false; scene.add(l);
       xr.rays[h] = l; return l;
     }
-    var tmpM = null, rc = null;
+    /* how far the wall is straight ahead of you (Infinity if unknown): menus and messages stay in front of it */
+    function wallDist(fwd) {
+      var best = Infinity;
+      if (st.surface && art.visible) {
+        var den = fwd.dot(st.surface.normal);
+        if (den < -0.15) { var t = art.position.clone().sub(xr.head).dot(st.surface.normal) / den; if (t > 0) best = t; }
+      }
+      if (xr.lastBest && st.phase === 'place') best = Math.min(best, xr.lastBest.pos.distanceTo(xr.head));
+      return best;
+    }
+    function headFwd(flatY) {
+      var f = new V3(0, 0, -1).applyQuaternion(xr.headQ);
+      if (flatY) { f.y = 0; if (f.lengthSq() < 1e-4) f.set(0, 0, -1); }
+      return f.normalize();
+    }
+    var tmpM = null, rc = null, ZAX = null;
     function xrFrame(frame, dt) {
-      var ref = renderer.xr.getReferenceSpace(), s = frame.session;
+      var ref = renderer.xr.getReferenceSpace(), s = frame.session, now = performance.now();
       if (s !== xr.session) return;
-      tmpM = tmpM || new T.Matrix4(); rc = rc || new T.Raycaster();
+      tmpM = tmpM || new T.Matrix4(); rc = rc || new T.Raycaster(); ZAX = ZAX || new V3(0, 0, 1);
       var vp = frame.getViewerPose(ref);
       if (vp) {
         var tp = vp.transform.position, to = vp.transform.orientation;
         xr.head = new V3(tp.x, tp.y, tp.z); xr.headQ = new Q(to.x, to.y, to.z, to.w);
       }
       if (!xr.head) return;
-      if (xr.needPanel) { xr.needPanel = false; openPanel(); say(st.method === 'aim' ? 'Point at the wall and pull the trigger to place your picture.' : 'Touch the wall with a controller tip where the centre goes, and pull the trigger.'); }
-      if (xr.wantAnchor) makeAnchor(frame, ref);
+      // the anchor holds the picture on the wall; a new one is made once it has been still for a moment
+      if (!xr.anchor && !xr.anchorPending && !xr.restoring && st.surface && st.phase !== 'place' && !xr.grab &&
+          (xr.anchorFail || 0) < 3 && now - xr.moveT > 700) makeAnchor(frame, ref);
       if (xr.anchor) {
         var ap = frame.getPose(xr.anchor.anchorSpace, ref);
         if (ap) {
           var m = tmpM.fromArray(ap.transform.matrix);
           art.position.setFromMatrixPosition(m); art.quaternion.setFromRotationMatrix(m);
+          var nrm = new V3(0, 0, 1).applyQuaternion(art.quaternion);
+          if (!st.surface) st.surface = { free: false };
+          st.surface.normal = nrm; st.surface.point = art.position.clone(); st.surface.horizontal = Math.abs(nrm.y) > 0.85;
+          if (!art.visible) art.visible = true;
+          if (xr.lostT > 0.4 && !xr.anchorFresh) say('Found your wall again.');
+          xr.lostT = 0;
           if (xr.anchorFresh) {
-            xr.anchorFresh = false; xr.restoring = false; art.visible = true;
-            var nrm = new V3(0, 0, 1).applyQuaternion(art.quaternion);
-            st.surface = { normal: nrm, point: art.position.clone(), horizontal: Math.abs(nrm.y) > 0.85, free: false };
-            S.rot = S.rot || 0; applyVis();
-            say('Back where you left it. Press A or X to hide or show.');
+            xr.anchorFresh = false; xr.restoring = false;
+            S.rot = S.rot || 0; applyVis(); changed();
+            say(st.phase === 'locked' ? 'Back where you left it. Press A or X to hide or show.' : 'Back where you left it. Click the right stick to lock it.');
           }
+        } else if (!xr.restoring) {
+          xr.lostT += dt;
+          if (xr.lostT > 0.4 && art.visible) { art.visible = false; say('Looking for your wall… look at it for a moment.'); }
         }
       }
       // inputs: rays, hit-tests, buttons, sticks, grab
@@ -861,9 +924,11 @@
         seen[h] = true;
         var mm = tmpM.fromArray(rp.transform.matrix);
         var origin = new V3().setFromMatrixPosition(mm), dir = new V3(0, 0, -1).applyQuaternion(new Q().setFromRotationMatrix(mm)).normalize();
-        var inp = xr.inputs[h] = { src: src, origin: origin, dir: dir, isHand: !!src.hand, hit: null, panelHit: null, artHit: null };
-        // surface under this ray
-        if (xr.hasHitTest && st.phase === 'place') {
+        var inp = xr.inputs[h] = { src: src, origin: origin, dir: dir, isHand: !!src.hand, hit: null, panelHit: null, artHit: null, grip: null };
+        var gpz = src.gripSpace && frame.getPose(src.gripSpace, ref);
+        if (gpz) inp.grip = new V3().setFromMatrixPosition(new T.Matrix4().fromArray(gpz.transform.matrix));
+        // the real surface under this ray (placing, and while lining up so the trigger can move it)
+        if (xr.hasHitTest && st.phase !== 'locked') {
           var hs = xr.hitSources.get(src);
           if (!hs && !xr.pendingHit.has(src)) {
             xr.pendingHit.add(src);
@@ -881,84 +946,131 @@
         rc.set(origin, dir);
         if (st.panel && xr.panelMesh) {
           var ph = rc.intersectObject(xr.panelMesh, false)[0];
-          if (ph) inp.panelHit = { uv: ph.uv, dist: ph.distance };
+          if (ph && panelButtonAt(ph.uv) !== undefined) inp.panelHit = { uv: ph.uv, dist: ph.distance };
         }
         if (art.visible && artMesh.visible) {
           var ah = rc.intersectObject(artMesh, false)[0];
           if (ah) inp.artHit = { uv: ah.uv, dist: ah.distance };
         }
-        // ray drawing: while placing/adjusting or with the menu open; hands only with the menu open
-        var ray = rayLine(h), showRay = st.panel || (!inp.isHand && st.phase !== 'locked');
+        // the ray: while placing / lining up, with the menu open, or aiming at a grid square; hands only with the menu open
+        var ray = rayLine(h), showRay = st.panel || (!inp.isHand && (st.phase !== 'locked' || (S.grid && inp.artHit)));
         ray.visible = showRay;
         if (showRay) {
           var len = inp.panelHit ? inp.panelHit.dist : inp.hit ? origin.distanceTo(inp.hit.pos) : inp.artHit ? inp.artHit.dist : 1.5;
           ray.position.copy(origin); ray.quaternion.setFromUnitVectors(new V3(0, 0, -1), dir); ray.scale.set(1, 1, len);
         }
-        if (src.gamepad && !inp.isHand) pad(src, h, inp, dt);
+        if (src.gamepad && !inp.isHand) { pad(src, h, inp, dt); if (s !== xr.session) return; }
       }
       Object.keys(xr.rays).forEach(function (h) { if (!seen[h]) xr.rays[h].visible = false; });
       Object.keys(xr.inputs).forEach(function (h) { if (!seen[h]) delete xr.inputs[h]; });
-      // placing: reticle + ghost follow the best hit (right hand first, then left, then gaze)
+      // the first menu waits a moment for the controllers, so it can sit on the left one
+      if (xr.needPanel && (xr.inputs.left || now - (xr.startT || now) > 1500)) { xr.needPanel = false; openPanel(); say(st.method === 'aim' ? 'Point at the wall and pull the trigger to stick your picture there.' : 'Touch the wall with a controller tip where the centre goes, and pull the trigger.'); }
+      // the ring shows where the trigger would put the picture (right hand first, then left, then gaze)
+      var aim = (xr.inputs.right && xr.inputs.right.hit && !xr.inputs.right.panelHit) ? xr.inputs.right
+        : (xr.inputs.left && xr.inputs.left.hit && !xr.inputs.left.panelHit) ? xr.inputs.left : null;
       if (st.phase === 'place') {
-        var best = null, pick = (xr.inputs.right && xr.inputs.right.hit) ? xr.inputs.right : (xr.inputs.left && xr.inputs.left.hit) ? xr.inputs.left : null;
-        if (pick) best = pick.hit;
-        else if (xr.viewerHit && st.method === 'aim') {
+        var best = aim ? aim.hit : null;
+        if (!best && xr.viewerHit && st.method === 'aim') {
           var vr = frame.getHitTestResults(xr.viewerHit);
           if (vr.length) { var vpz = vr[0].getPose(ref); if (vpz) { var vm = new T.Matrix4().fromArray(vpz.transform.matrix); best = { pos: new V3().setFromMatrixPosition(vm), normal: new V3(vm.elements[4], vm.elements[5], vm.elements[6]).normalize() }; } }
         }
         if (st.method === 'aim' && best) {
-          reticle.visible = true; reticle.position.copy(best.pos);
-          reticle.quaternion.setFromUnitVectors(new V3(0, 0, 1), best.normal);
+          reticle.visible = true; reticle.scale.setScalar(1); reticle.position.copy(best.pos);
+          reticle.quaternion.setFromUnitVectors(ZAX, best.normal);
           setPose(best.pos, best.normal, false); artMesh.visible = true;
           xr.lastBest = best;
         } else { reticle.visible = false; if (st.method !== 'float') art.visible = false; }
         var tipSrc = xr.inputs.right || xr.inputs.left;
         tipDot.visible = st.method === 'touch' && !!tipSrc && !tipSrc.isHand;
         if (tipDot.visible) tipDot.position.copy(tipSrc.origin);
+      } else if (st.phase === 'adjust' && aim && !xr.grab) {
+        reticle.visible = true; reticle.scale.setScalar(0.6); reticle.position.copy(aim.hit.pos);
+        reticle.quaternion.setFromUnitVectors(ZAX, aim.hit.normal); tipDot.visible = false;
       } else { reticle.visible = false; tipDot.visible = false; }
-      if (st.panel) hoverPanel();
+      if (st.panel) { placePanel(); hoverPanel(); }
+      updateTips();
       followToast(dt);
     }
+    /* Every controller button does something; the floating labels over the controllers say what, step by step.
+       Buttons (xr-standard): 0 trigger (handled by 'select'), 1 grip, 3 stick click, 4 A / X, 5 B / Y. */
     function pad(src, h, inp, dt) {
-      var gp = src.gamepad, prev = xr.buttons[h] || [], now = [], b = gp.buttons;
+      var gp = src.gamepad, prev = xr.buttons[h] || [], now = [], b = gp.buttons, L = h === 'left', t = performance.now();
       for (var i = 0; i < b.length; i++) now[i] = !!(b[i] && b[i].pressed);
+      xr.buttons[h] = now;
       function down(k) { return now[k] && !prev[k]; }
-      if (down(4)) toggleShown();                                  // A / X
-      if (down(5)) { if (h === 'left') togglePanel(); else { cycleOpacity(); changed(); } }   // Y menu, B opacity
-      if (down(3)) { if (h === 'left') act('grid'); else { cycleLook(); } }                    // stick clicks
-      // grip: slide the picture along the wall
-      if (st.phase === 'adjust') {
-        if (down(1)) xr.grab = { h: h, start: inp.origin.clone(), from: art.position.clone() };
-        if (xr.grab && xr.grab.h === h) {
-          if (!now[1]) { xr.grab = null; st.surface.point.copy(art.position); }
-          else {
-            var dlt = inp.origin.clone().sub(xr.grab.start);
-            if (st.surface && !st.surface.free) dlt.projectOnPlane(st.surface.normal);
-            art.position.copy(xr.grab.from).add(dlt);
-          }
+      function up(k) { return !now[k] && prev[k]; }
+      // A / X: hide / show (while placing: float it in front of you)
+      if (down(4)) { if (st.phase === 'place') act('m-float'); else { toggleShown(); changed(); } }
+      // Y: tap = menu, hold = leave VR · B: opacity
+      if (L) {
+        if (down(5)) { xr.yDown = t; xr.yWarned = false; }
+        if (now[5] && xr.yDown) {
+          var held = t - xr.yDown;
+          if (held > 450 && !xr.yWarned) { xr.yWarned = true; say('Keep holding Y to leave VR…'); haptic(src, 0.25, 40); }
+          if (held > 1600) { xr.yDown = 0; haptic(src, 0.8, 120); finish(); return; }
+        }
+        if (up(5) && xr.yDown) { if (t - xr.yDown < 450) togglePanel(); else say('Staying in VR'); xr.yDown = 0; }
+      } else if (down(5)) { cycleOpacity(); changed(); }
+      // stick click: right = lock / unlock, left = grid
+      if (down(3)) {
+        if (L) act('grid');
+        else if (st.phase === 'adjust') act('lock');
+        else if (st.phase === 'locked') act('unlock');
+        else say('Place it first: point at the wall and pull the trigger.');
+      }
+      // grip: placing = grab it out of the air · lining up = drag it · locked = hold to peek behind it
+      if (down(1)) {
+        if (st.phase === 'place' && inp.grip) {
+          var n = headPos().sub(inp.grip); n.y = 0; if (n.lengthSq() < 1e-4) n.set(0, 0, 1);
+          placeAt(inp.grip.clone(), n.normalize(), true);
+          xr.grab = { h: h, start: inp.origin.clone(), from: art.position.clone() };
+        } else if (st.phase === 'adjust' && st.surface) {
+          xr.grab = { h: h, start: inp.origin.clone(), from: art.position.clone() }; moved();
+        } else if (st.phase === 'locked') { st.peek = h; applyVis(); }
+      }
+      if (st.peek === h && !now[1]) { st.peek = false; applyVis(); }
+      if (xr.grab && xr.grab.h === h) {
+        if (!now[1] || st.phase !== 'adjust') { xr.grab = null; if (st.surface) st.surface.point.copy(art.position); xr.moveT = t; }
+        else {
+          var dlt = inp.origin.clone().sub(xr.grab.start);
+          if (st.surface && !st.surface.free) dlt.projectOnPlane(st.surface.normal);
+          art.position.copy(xr.grab.from).add(dlt); moved();
         }
       }
       var ax = gp.axes.length >= 4 ? gp.axes[2] : (gp.axes[0] || 0), ay = gp.axes.length >= 4 ? gp.axes[3] : (gp.axes[1] || 0);
       if (Math.abs(ax) < 0.2) ax = 0; if (Math.abs(ay) < 0.2) ay = 0;
-      if (st.phase === 'adjust' && (ax || ay)) {
-        if (h !== 'left') {
+      var latch = xr.stickLatch[h];
+      if (!ax && !ay) {
+        xr.stickLatch[h] = false;
+        if (xr.opDirty && !L) { xr.opDirty = false; applyVis(); changed(); }
+      }
+      if (st.phase !== 'locked') {
+        if (!L && (ax || ay)) {                                   // right stick: size ↕, turn ↔
           st.dirty = true;
           if (ay) { S.width_cm = Math.max(5, Math.min(1000, S.width_cm * (1 - ay * dt * 0.7))); applySize(); }
-          if (ax) { S.rot = Math.max(-180, Math.min(180, S.rot + ax * dt * 20)); if (Math.abs(S.rot) < 0.6) S.rot = 0; applyOrientation(); }
+          if (ax && st.phase === 'adjust') { S.rot = Math.max(-180, Math.min(180, S.rot + ax * dt * 20)); if (Math.abs(S.rot) < 0.6) S.rot = 0; applyOrientation(); moved(); }
           throttleSay(WT.fmtSize(pseudo()) + (S.rot ? ' · turned ' + Math.round(S.rot) + '°' : ''));
-        } else if (ay && st.surface) { art.position.addScaledVector(st.surface.normal, -ay * dt * 0.03); throttleSay('Moving in and out'); }
+        } else if (L && (ax || ay) && st.phase === 'adjust' && st.surface) {   // left stick: slide it along the wall
+          var q0 = orientation(st.surface.normal, 0, art.position);
+          art.position.addScaledVector(new V3(1, 0, 0).applyQuaternion(q0), ax * dt * 0.25)
+            .addScaledVector(new V3(0, 1, 0).applyQuaternion(q0), -ay * dt * 0.25);
+          moved(); throttleSay('Sliding it along the wall');
+        }
+      } else if (!L) {                                            // locked, right stick: opacity ↕, look ↔
+        if (ay) { S.opacity = Math.max(0.1, Math.min(1, S.opacity - ay * dt * 0.8)); artMesh.material.opacity = S.opacity; st.dirty = true; xr.opDirty = true; throttleSay('Opacity ' + Math.round(S.opacity * 100) + '%'); }
+        if (!latch && Math.abs(ax) > 0.7) { cycleLook(); xr.stickLatch[h] = true; }
+      } else if (!latch && (Math.abs(ax) > 0.7 || Math.abs(ay) > 0.7)) {   // locked, left stick: the spotlight square
+        xr.stickLatch[h] = true;
+        if (!st.spot) act('spot');
+        else if (Math.abs(ax) > 0.7) moveSpot(ax > 0 ? 1 : -1);
+        else moveSpot((ay > 0 ? 1 : -1) * WT.grid(pseudo()).cols);
+        changed();
       }
-      if (st.phase === 'locked' && st.spot && h === 'left') {
-        var latch = xr.stickLatch[h];
-        if (!latch && Math.abs(ax) > 0.7) { moveSpot(ax > 0 ? 1 : -1); xr.stickLatch[h] = true; }
-        else if (!latch && Math.abs(ay) > 0.7) { moveSpot((ay > 0 ? 1 : -1) * WT.grid(pseudo()).cols); xr.stickLatch[h] = true; }
-        else if (!ax && !ay) xr.stickLatch[h] = false;
-      }
-      xr.buttons[h] = now;
     }
     var sayT = 0;
     function throttleSay(m) { var n = performance.now(); if (n - sayT > 250) { sayT = n; say(m); } }
     function onSelect(src) {
+      if (st.mode !== 'xr') return;
       var h = src.handedness || 'none', inp = xr.inputs[h];
       var held = performance.now() - (xr.selStart.get(src) || performance.now());
       if (src.hand && h === S.pencil) return;                       // the pencil hand's pinches are ignored
@@ -967,89 +1079,176 @@
       if (st.phase === 'place') {
         if (st.method === 'aim') {
           var hit = (inp && inp.hit) || (src.hand ? xr.lastBest : null) || (xr.viewerHit ? xr.lastBest : null);
-          if (hit) placeAt(hit.pos, hit.normal, false); else say('No surface there. Aim at the wall, or choose Touch 3 points in the menu.');
+          if (hit) placeAt(hit.pos, hit.normal, false); else say('No wall found there. Aim at the wall, hold grip to grab it from the air, or choose Touch 3 points in the menu.');
         } else if (st.method === 'touch' && inp && !inp.isHand) addTouchPoint(inp.origin);
         else if (st.method === 'float') placeFloat();
         return;
       }
-      if (st.phase === 'locked') {
-        if (src.hand) { toggleShown(); return; }
-        if (S.grid && inp && inp.artHit) { cellAtUv(inp.artHit.uv); return; }
+      if (st.phase === 'adjust') {
+        if (inp && inp.hit) { stickAt(inp.hit); return; }
+        say(xr.hasHitTest ? 'No wall found there. Aim at the wall, or hold grip and drag it.' : 'Hold grip and drag it, or choose Place again in the menu.');
+        return;
       }
-      if (!st.panel) openPanel();
+      if (src.hand) { toggleShown(); return; }
+      if (S.grid && inp && inp.artHit) { cellAtUv(inp.artHit.uv); return; }
+      say('It\'s locked. Click the right stick to unlock it and move it.');
     }
 
-    /* the floating menu in the headset (a canvas on a plane) */
+    /* the menu: a tablet above your left controller (or floating in front of you, never inside the wall).
+       The canvas is a fixed size (this three.js can't grow a texture): fewer buttons leave the top see-through. */
+    var PANEL_ROWS = 5, PANEL_HAND = 0.34, PANEL_FLOAT = 0.46;
     function panelLayout(list) {
-      var cols = 4, bw = 228, bh = 92, gap = 14, top = 150, rows = Math.ceil(list.length / cols);
-      var H = top + rows * (bh + gap) + 24;
-      return { cols: cols, bw: bw, bh: bh, gap: gap, top: top, H: H, left: (PANEL_W - (cols * bw + (cols - 1) * gap)) / 2 };
+      var cols = 4, bw = 228, bh = 92, gap = 14, top = 196, foot = 58, rows = Math.max(1, Math.ceil(list.length / cols));
+      var H = top + PANEL_ROWS * (bh + gap) + foot, used = top + rows * (bh + gap) + foot;
+      return { cols: cols, bw: bw, bh: bh, gap: gap, top: top, H: H, oy: Math.max(0, H - used), left: (PANEL_W - (cols * bw + (cols - 1) * gap)) / 2 };
     }
     function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
     function drawPanel(hover) {
-      var list = actions(), L = panelLayout(list);
+      var list = actions().slice(0, PANEL_ROWS * 4), L = panelLayout(list), oy = L.oy;
       if (!xr.panelCanvas) xr.panelCanvas = WT.canvas(PANEL_W, L.H);
-      var c = xr.panelCanvas;
-      if (c.height !== L.H) c.height = L.H;
-      var g = c.getContext('2d');
+      var c = xr.panelCanvas, g = c.getContext('2d');
       g.clearRect(0, 0, PANEL_W, L.H);
-      g.fillStyle = 'rgba(250, 247, 242, .97)'; roundRect(g, 4, 4, PANEL_W - 8, L.H - 8, 40); g.fill();
-      g.fillStyle = '#2a2522'; g.font = '600 46px Fraunces, Georgia, serif'; g.textBaseline = 'alphabetic';
-      g.fillText(P.title.length > 30 ? P.title.slice(0, 29) + '…' : P.title, 40, 70);
-      g.fillStyle = '#6c6158'; g.font = '500 27px Inter, Arial, sans-serif';
-      var sub = st.phase === 'place' ? (st.method === 'touch' ? 'Touch the wall with a controller tip: centre first, then 2 more spots.' : st.method === 'aim' ? 'Point at the wall and pull the trigger.' : 'Pick a way to place it.')
-        : st.phase === 'adjust' ? WT.fmtSize(pseudo()) + ' · grip to slide · right stick: size and turn'
-          : 'A / X or a free-hand pinch: hide / show · ' + WT.fmtSize(pseudo());
-      g.fillText(sub, 40, 116);
+      g.fillStyle = 'rgba(250, 247, 242, .97)'; roundRect(g, 4, oy + 4, PANEL_W - 8, L.H - oy - 8, 40); g.fill();
+      g.fillStyle = '#2a2522'; g.font = '600 42px Fraunces, Georgia, serif'; g.textBaseline = 'alphabetic';
+      g.fillText(P.title.length > 26 ? P.title.slice(0, 25) + '…' : P.title, 40, oy + 62);
+      g.fillStyle = '#6c6158'; g.font = '500 26px Inter, Arial, sans-serif'; g.textAlign = 'right';
+      g.fillText(WT.fmtSize(pseudo()), PANEL_W - 40, oy + 60); g.textAlign = 'left';
+      // where you are: 1 place, 2 line up, 3 trace
+      var sx = 40;
+      [['place', '1  Place'], ['adjust', '2  Line up'], ['locked', '3  Trace']].forEach(function (sp) {
+        var cur = st.phase === sp[0];
+        g.font = (cur ? '700' : '500') + ' 26px Inter, Arial, sans-serif';
+        var w = g.measureText(sp[1]).width + 40;
+        g.fillStyle = cur ? '#2f8f83' : '#ebe3d7'; roundRect(g, sx, oy + 84, w, 46, 23); g.fill();
+        g.fillStyle = cur ? '#ffffff' : '#6c6158'; g.fillText(sp[1], sx + 20, oy + 116);
+        sx += w + 12;
+      });
+      g.fillStyle = '#4a413a'; g.font = '500 25px Inter, Arial, sans-serif';
+      var sub = st.phase === 'place' ? (st.method === 'touch' ? 'Touch the wall with a controller tip: centre first, then 2 more spots.' : 'Point at the wall and pull the trigger. Grip grabs it from the air.')
+        : st.phase === 'adjust' ? 'Trigger on the wall: move it there · grip: drag · right stick click: lock'
+          : 'A / X or a free-hand pinch: hide / show · grip: peek · right stick click: unlock';
+      g.fillText(sub, 40, oy + 170);
       xr.panelButtons = [];
       list.forEach(function (a, i) {
-        var col = i % L.cols, row = Math.floor(i / L.cols), x = L.left + col * (L.bw + L.gap), y = L.top + row * (L.bh + L.gap);
+        var col = i % L.cols, row = Math.floor(i / L.cols), x = L.left + col * (L.bw + L.gap), y = oy + L.top + row * (L.bh + L.gap);
         var isHover = hover === a.id;
-        g.fillStyle = a.primary ? '#c4552d' : a.on ? '#d8ece8' : isHover ? '#ece4d8' : '#f1ebe2';
+        g.fillStyle = a.danger ? (isHover ? '#8a2614' : '#a8321c') : a.primary ? '#c4552d' : a.on ? '#d8ece8' : isHover ? '#ece4d8' : '#f1ebe2';
         roundRect(g, x, y, L.bw, L.bh, 24); g.fill();
-        if (isHover) { g.lineWidth = 5; g.strokeStyle = a.primary ? '#7d2f15' : '#2f8f83'; g.stroke(); }
-        g.fillStyle = a.primary ? '#ffffff' : a.on ? '#1f6b62' : '#2a2522';
+        if (isHover) { g.lineWidth = 5; g.strokeStyle = a.primary || a.danger ? '#5c1d0c' : '#2f8f83'; g.stroke(); }
+        g.fillStyle = a.primary || a.danger ? '#ffffff' : a.on ? '#1f6b62' : '#2a2522';
         g.font = '600 ' + (a.label.length > 14 ? 25 : 29) + 'px Inter, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillText(a.label, x + L.bw / 2, y + L.bh / 2 + 1);
         g.textAlign = 'left'; g.textBaseline = 'alphabetic';
         xr.panelButtons.push({ id: a.id, x: x, y: y, w: L.bw, h: L.bh });
       });
+      g.fillStyle = '#8a7e73'; g.font = '500 24px Inter, Arial, sans-serif'; g.textAlign = 'center';
+      g.fillText('Y: close the menu  ·  hold Y: leave VR and go back to the website', PANEL_W / 2, L.H - 26); g.textAlign = 'left';
       if (!xr.panelMesh) {
         var t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace;
         xr.panelMesh = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, toneMapped: false }));
         xr.panelMesh.renderOrder = 40; scene.add(xr.panelMesh);
       }
       xr.panelMesh.material.map.needsUpdate = true;
-      xr.panelMesh.scale.set(PANEL_M, PANEL_M * L.H / PANEL_W, 1);
+      xr.panelTop = oy;
       xr.panelHover = hover || null;
     }
+    function leftController() { var l = xr.inputs.left; return l && l.grip && !l.isHand ? l : null; }
     function openPanel() {
       if (st.mode !== 'xr' || !xr.head) { xr.needPanel = true; return; }
-      st.panel = true; drawPanel();
-      var fwd = new V3(0, 0, -1).applyQuaternion(xr.headQ); fwd.y = 0; if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, -1); fwd.normalize();
-      var pos = xr.head.clone().addScaledVector(fwd, 0.6); pos.y = xr.head.y - 0.18;
-      xr.panelMesh.position.copy(pos);
-      xr.panelMesh.lookAt(xr.head.x, xr.head.y - 0.05, xr.head.z);
+      st.panel = true; drawPanel(); xr.panelWorld = null;
+      if (!leftController()) {
+        var fwd = headFwd(true), d = Math.max(0.32, Math.min(0.55, wallDist(fwd) - 0.1));
+        xr.panelWorld = xr.head.clone().addScaledVector(fwd, d); xr.panelWorld.y = xr.head.y - 0.14;
+      }
+      placePanel();
       xr.panelMesh.visible = true;
+      changed();
+    }
+    function placePanel() {
+      if (!xr.panelMesh || !xr.head) return;
+      var lc = xr.panelWorld ? null : leftController(), H = xr.panelCanvas.height, w;
+      if (lc) {
+        w = PANEL_HAND;
+        var hgt = w * H / PANEL_W, toHead = xr.head.clone().sub(lc.grip); toHead.y = 0;
+        if (toHead.lengthSq() < 1e-4) toHead.set(0, 0, 1);
+        xr.panelMesh.position.copy(lc.grip).addScaledVector(toHead.normalize(), 0.03);
+        xr.panelMesh.position.y += 0.06 + hgt / 2;
+      } else {
+        if (!xr.panelWorld) xr.panelWorld = xr.panelMesh.position.clone();   // the controller went away: leave it there
+        w = PANEL_FLOAT;
+        xr.panelMesh.position.copy(xr.panelWorld);
+      }
+      xr.panelMesh.scale.set(w, w * H / PANEL_W, 1);
+      xr.panelMesh.lookAt(xr.head);
     }
     function closePanel() { st.panel = false; if (xr.panelMesh) xr.panelMesh.visible = false; }
     function togglePanel() { if (st.panel) closePanel(); else openPanel(); }
-    function buttonAt(uv) {
-      var c = xr.panelCanvas, x = uv.x * PANEL_W, y = (1 - uv.y) * c.height;
+    /* the button under a point of the menu; null on the menu but not on a button, undefined off the drawn card */
+    function panelButtonAt(uv) {
+      var c = xr.panelCanvas; if (!c) return undefined;
+      var x = uv.x * PANEL_W, y = (1 - uv.y) * c.height;
+      if (y < (xr.panelTop || 0)) return undefined;
       return xr.panelButtons.filter(function (b) { return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h; })[0] || null;
     }
     function hoverPanel() {
       var hov = null;
-      ['right', 'left', 'none'].forEach(function (h) { var i = xr.inputs[h]; if (!hov && i && i.panelHit) { var b = buttonAt(i.panelHit.uv); if (b) hov = b.id; } });
+      ['right', 'left', 'none'].forEach(function (h) { var i = xr.inputs[h]; if (!hov && i && i.panelHit) { var b = panelButtonAt(i.panelHit.uv); if (b) hov = b.id; } });
       if (hov !== xr.panelHover) drawPanel(hov);
     }
     function pressPanel(uv) {
-      var b = buttonAt(uv);
+      var b = panelButtonAt(uv);
       if (!b) return;
       haptic(null, 0.3, 30);
       act(b.id);
     }
-    /* a line of text that floats below your view for a moment */
+    /* small labels floating over each controller: what every button does right now */
+    function tipLines(h) {
+      var ph = st.phase, hit = xr.hasHitTest;
+      if (h === 'right') {
+        if (ph === 'place') return [hit ? 'Trigger: stick it where you point' : 'Trigger: mark a point on the wall', 'Grip: grab it from the air', 'Stick up / down: size', 'A: float in front  ·  B: opacity'];
+        if (ph === 'adjust') return [hit ? 'Trigger: move it where you point' : 'Trigger: menu buttons', 'Grip (hold): drag it', 'Stick: size ↕  turn ↔', 'Click stick: LOCK', 'A: hide / show  ·  B: opacity'];
+        return [S.grid ? 'Trigger: tick a grid square' : 'Trigger: menu buttons', 'Grip (hold): peek behind it', 'Stick: opacity ↕  look ↔', 'Click stick: unlock', 'A: hide / show  ·  B: opacity'];
+      }
+      var l = ['Y: menu  ·  hold Y: leave VR'];
+      if (ph === 'place') return l.concat(['X: float in front', 'Click stick: grid']);
+      if (ph === 'adjust') return ['Stick: slide it on the wall', 'Grip (hold): drag it'].concat(l, ['X: hide / show  ·  click stick: grid']);
+      return ['Stick: move the spotlight square', 'Grip (hold): peek behind it'].concat(l, ['X: hide / show  ·  click stick: grid']);
+    }
+    var TIP_W = 560, TIP_H = 250, TIP_M = 0.16;
+    function drawTip(m, lines) {
+      var g = m.c.getContext('2d'), lh = 42, bh = 22 + lines.length * lh, y0 = TIP_H - bh;
+      g.clearRect(0, 0, TIP_W, TIP_H);
+      g.fillStyle = 'rgba(24, 21, 19, .82)'; roundRect(g, 2, y0, TIP_W - 4, bh - 2, 22); g.fill();
+      g.font = '600 28px Inter, Arial, sans-serif'; g.textBaseline = 'middle';
+      lines.forEach(function (ln, i) {
+        var k = ln.indexOf(':');
+        g.fillStyle = '#7fe3d6'; g.fillText(k > 0 ? ln.slice(0, k + 1) : '', 22, y0 + 32 + i * lh);
+        var w = k > 0 ? g.measureText(ln.slice(0, k + 1) + ' ').width : 0;
+        g.fillStyle = '#ffffff'; g.fillText(k > 0 ? ln.slice(k + 2) : ln, 22 + w, y0 + 32 + i * lh);
+      });
+      m.mesh.material.map.needsUpdate = true;
+    }
+    function updateTips() {
+      var show = tipsOn() && (st.phase !== 'locked' || performance.now() < xr.tipsUntil);
+      ['left', 'right'].forEach(function (h) {
+        var inp = xr.inputs[h], m = xr.tips[h];
+        var vis = show && inp && inp.grip && !inp.isHand && !(h === 'left' && st.panel && !xr.panelWorld);
+        if (!vis) { if (m) m.mesh.visible = false; return; }
+        if (!m) {
+          var c = WT.canvas(TIP_W, TIP_H), t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace;
+          var mesh = new T.Mesh(new T.PlaneGeometry(TIP_M, TIP_M * TIP_H / TIP_W), new T.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, toneMapped: false }));
+          mesh.renderOrder = 45; scene.add(mesh);
+          m = xr.tips[h] = { c: c, mesh: mesh, key: '' };
+        }
+        var lines = tipLines(h), key = lines.join('|');
+        if (m.key !== key) { drawTip(m, lines); m.key = key; }
+        var toHead = xr.head.clone().sub(inp.grip).normalize();
+        m.mesh.position.copy(inp.grip).addScaledVector(toHead, 0.03);
+        m.mesh.position.y += 0.05 + TIP_M * TIP_H / TIP_W / 2;
+        m.mesh.lookAt(xr.head); m.mesh.visible = true;
+      });
+    }
+    /* a line of text that floats below your view for a moment (always in front of the wall) */
     function drawToast(msg) {
       if (!xr.toastCanvas) xr.toastCanvas = WT.canvas(1024, 150);
       var c = xr.toastCanvas, g = c.getContext('2d');
@@ -1062,6 +1261,7 @@
       g.fillStyle = 'rgba(24, 21, 19, .86)'; roundRect(g, 512 - 490, 75 - hgt / 2, 980, hgt, 30); g.fill();
       g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
       lines.forEach(function (l, i) { g.fillText(l, 512, 75 + (i - (lines.length - 1) / 2) * 48); });
+      g.textAlign = 'left';
       if (!xr.toastMesh) {
         var t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace;
         xr.toastMesh = new T.Mesh(new T.PlaneGeometry(0.5, 0.5 * 150 / 1024), new T.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, toneMapped: false }));
@@ -1074,9 +1274,11 @@
     function followToast(dt) {
       if (!xr.toastMesh || !xr.toastMesh.visible || !xr.head) return;
       st.toastT -= dt;
-      var fwd = new V3(0, 0, -1).applyQuaternion(xr.headQ), want = xr.head.clone().addScaledVector(fwd, 0.75);
-      want.y -= 0.22;
+      var fwd = headFwd(false), d = Math.max(0.3, Math.min(0.75, wallDist(fwd) - 0.08));
+      var want = xr.head.clone().addScaledVector(fwd, d);
+      want.y += (st.panel && xr.panelWorld ? 0.16 : -0.22) * d / 0.75;   // above a floating menu, else just below your view
       if (xr.toastFresh) { xr.toastMesh.position.copy(want); xr.toastFresh = false; } else xr.toastMesh.position.lerp(want, Math.min(1, dt * 4));
+      xr.toastMesh.scale.setScalar(d / 0.75);   // same size to your eye, however close the wall is
       xr.toastMesh.lookAt(xr.head);
       xr.toastMesh.material.opacity = Math.max(0, Math.min(1, st.toastT));
       if (st.toastT <= 0) { xr.toastMesh.visible = false; xr.toastFresh = true; }
@@ -1119,15 +1321,19 @@
     }
 
     /* ================================================================== intro + summary screens */
-    function keysHtml() {
+    function keysHtml(headset) {
       return '<div class="tr-keys"><div><h4>' + UI.icon('headset') + 'Controllers</h4><ul>' +
-        '<li><b>Trigger</b>: place it / press a menu button</li><li><b>Grip</b> (hold): slide it on the wall</li><li><b>Right stick</b>: resize ↕, turn ↔</li>' +
-        '<li><b>A or X</b>: hide / show</li><li><b>B</b>: opacity · <b>Y</b>: menu</li></ul></div>' +
+        '<li><b>Trigger</b>: stick it where you point (again any time to move it) · press menu buttons</li>' +
+        '<li><b>Grip</b> (hold): drag it · once locked: peek behind it</li>' +
+        '<li><b>Right stick</b>: size ↕, turn ↔ · <b>click</b>: lock / unlock</li>' +
+        '<li><b>Left stick</b>: slide it on the wall · <b>click</b>: grid</li>' +
+        '<li><b>A or X</b>: hide / show · <b>B</b>: opacity</li><li><b>Y</b>: menu · <b>hold Y</b>: leave VR, back to this page</li></ul></div>' +
         '<div><h4>' + UI.icon('hand') + 'Hands (controllers down)</h4><ul><li><b>Pinch</b> with your free hand: hide / show</li>' +
         '<li><b>Pinch and hold</b>: menu</li><li>Your pencil hand\'s pinches are ignored</li><li>Blink mode peeks for you</li></ul></div>' +
-        '<div><h4>' + UI.icon('grid') + 'Keyboard (this screen)</h4><ul><li><span class="wt-kbd">H</span> hide · <span class="wt-kbd">L</span> lock</li>' +
+        (headset ? '' : '<div><h4>' + UI.icon('grid') + 'Keyboard (this screen)</h4><ul><li><span class="wt-kbd">H</span> hide · <span class="wt-kbd">L</span> lock</li>' +
         '<li><span class="wt-kbd">G</span> grid · <span class="wt-kbd">S</span> spotlight · <span class="wt-kbd">D</span> square done</li>' +
-        '<li><span class="wt-kbd">Q</span> <span class="wt-kbd">E</span> turn · scroll: size / zoom</li><li><span class="wt-kbd">M</span> look · <span class="wt-kbd">O</span> opacity</li></ul></div></div>';
+        '<li><span class="wt-kbd">Q</span> <span class="wt-kbd">E</span> turn · scroll: size / zoom</li><li><span class="wt-kbd">M</span> look · <span class="wt-kbd">O</span> opacity</li></ul></div>') +
+        '</div>' + (headset ? '<p class="ui-note" style="margin-top:10px">No keyboard needed: every step works with the controllers, and labels over them show what each button does.</p>' : '');
     }
     function showIntro(sup) {
       st.mode = 'intro';
@@ -1142,7 +1348,7 @@
         '<button class="ui-btn lg' + (sup.ar || sup.vr ? '' : ' primary') + '" data-flat>' + UI.icon('play') + '<span>Practise in the virtual room<small>Place, lock and trace with the mouse or your finger, right here.</small></span></button>' +
         '</div>' +
         (!sup.ar && !sup.vr ? '<p class="ui-note" style="margin-top:12px">To trace a real wall, open this page on a <b>Meta Quest</b> (3, 3S, Pro or 2) in the Meta Quest Browser and sign in. Android phones with AR work too, on a tripod.</p>' : '') +
-        keysHtml() +
+        keysHtml(sup.ar || sup.vr) +
         '<div class="ui-row" style="margin-top:18px"><a class="ui-btn ghost sm" href="#edit/' + esc(P.id) + '" data-go="edit/' + esc(P.id) + '">' + UI.icon('sliders') + 'Adjust look and size</a>' +
         '<a class="ui-btn ghost sm" href="#studio" data-go="studio">' + UI.icon('back') + 'Studio</a><a class="ui-btn ghost sm" href="#guide" data-go="guide">' + UI.icon('info') + 'Guide</a></div>' +
         '</div></div>';
@@ -1194,7 +1400,8 @@
     on(cv, 'pointerleave', function () { flat.hover = null; });
 
     window.WT_TRACE = {
-      state: function () { return { mode: st.mode, phase: st.phase, shown: st.shown, spot: st.spot, grid: S.grid, width: S.width_cm, opacity: S.opacity, look: S.look, done: (P.done || []).slice(), activeMs: st.activeMs, visible: !!(artMesh && art.visible && artMesh.visible) }; },
+      state: function () { return { mode: st.mode, phase: st.phase, shown: st.shown, spot: st.spot, grid: S.grid, width: S.width_cm, opacity: S.opacity, look: S.look, done: (P.done || []).slice(), activeMs: st.activeMs, visible: !!(artMesh && art.visible && artMesh.visible),
+        anchored: !!xr.anchor, panel: st.panel, rot: S.rot, pos: art ? art.position.toArray().map(function (v) { return Math.round(v * 1000) / 1000; }) : null }; },
       act: act,
       /* place at a point of the screen (fractions of width/height), as a click would */
       placeAt: function (fx, fy) {
