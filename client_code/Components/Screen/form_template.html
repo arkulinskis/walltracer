@@ -1,0 +1,15 @@
+---
+custom_component: true
+properties:
+  - name: screen
+    type: string
+    default_value: ""
+    description: Which engine screen to show (edit or trace in theme/assets/wt-screens.js)
+toolbox_item:
+  title: Engine screen
+  group: WallTracer
+help_text: |
+  One of WallTracer's JavaScript screens (the picture editor, the tracing session with WebXR), mounted when the component
+  appears and destroyed (with a last save) when it leaves. Call mount(args) with the address parts.
+---
+<div class="wt-screen-host"><div anvil:dom-node="host"></div></div>

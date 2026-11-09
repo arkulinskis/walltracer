@@ -1,0 +1,17 @@
+---
+properties:
+  - name: post
+    type: object
+    description: The Showcase post to show
+---
+<div class="wt-dialog">
+  <img class="sc-big" anvil:name="photo" alt="">
+  <anvil-component type="Label" name="title" prop:role='["dlg-title"]'></anvil-component>
+  <anvil-component type="Label" name="meta" prop:role='["fine-print"]'></anvil-component>
+  <anvil-component type="Label" name="caption" prop:role='["sc-caption"]'></anvil-component>
+  <div class="ui-row wt-dialog-actions">
+    <anvil-component type="Button" name="delete_button" prop:text="Delete" prop:role='["btn", "btn-sm", "btn-danger", "ic-trash"]'></anvil-component>
+    <span class="ui-spacer"></span>
+    <anvil-component type="Button" name="like_button" prop:role='["sc-like", "ic-heart"]'></anvil-component>
+  </div>
+</div>

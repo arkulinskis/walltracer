@@ -1,0 +1,27 @@
+<div class="st-card-wrap">
+  <article class="st-card">
+    <a class="st-open" anvil:name="open_link" href="#studio">
+      <div class="wt-thumb" anvil:name="thumb">
+        <img anvil:name="thumb_img" alt="" loading="lazy">
+        <i class="ic ic-image" anvil:name="thumb_icon" aria-hidden="true"></i>
+      </div>
+      <span class="ui-badge good done-badge" anvil:name="done_badge"><i class="ic ic-check" aria-hidden="true"></i>Finished</span>
+    </a>
+    <anvil-component type="Label" name="title" bind:text="self.item['p']['title']" prop:role='["st-title"]'></anvil-component>
+    <div class="meta">
+      <span><i class="ic ic-ruler" aria-hidden="true"></i><anvil-component type="Label" name="size" prop:role='["inline"]'></anvil-component></span>
+      <anvil-component type="Label" name="look" prop:role='["inline"]'></anvil-component>
+      <span anvil:name="minutes_box"><i class="ic ic-clock" aria-hidden="true"></i><anvil-component type="Label" name="minutes" prop:role='["inline"]'></anvil-component></span>
+    </div>
+    <div class="meta st-prog" anvil:name="progress_box">
+      <div class="wt-bar"><i anvil:name="bar"></i></div>
+      <anvil-component type="Label" name="progress_text" prop:role='["fine-print"]'></anvil-component>
+    </div>
+    <div class="acts">
+      <a class="ui-btn primary sm" anvil:name="trace_link" href="#studio"><i class="ic ic-headset" aria-hidden="true"></i>Trace</a>
+      <a class="ui-btn sm" anvil:name="edit_link" href="#studio"><i class="ic ic-sliders" aria-hidden="true"></i>Adjust</a>
+      <anvil-component type="Button" name="move_button" prop:role='["btn", "btn-sm", "btn-icon", "ic-upload"]' prop:tooltip="Save to my account"></anvil-component>
+      <anvil-component type="Button" name="more_button" prop:role='["btn", "btn-sm", "btn-icon", "ic-more"]' prop:tooltip="More"></anvil-component>
+    </div>
+  </article>
+</div>

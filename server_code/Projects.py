@@ -17,7 +17,7 @@ LOOKS = ("photo", "lines", "outline", "zones", "stencil")
 STATUSES = ("tracing", "done")
 
 # Every project setting: default, then a (min, max) range, a [list] of allowed values, bool, or "color".
-SETTINGS = {
+SETTINGS: dict = {
     "look": ("lines", list(LOOKS)),
     "detail": (50, (0, 100)),          # outline: edge sensitivity; lines/stencil: darkness threshold
     "levels": (4, (2, 8)),             # zones: how many tones

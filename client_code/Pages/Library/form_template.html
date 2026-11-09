@@ -1,0 +1,24 @@
+<anvil-form layout="WallTracer.Layouts.Shell">
+  <anvil-block slot="content">
+    <div class="ui-wrap">
+      <div class="ui-page-head">
+        <div>
+          <h1>Ready to <span class="ui-squiggle">trace</span></h1>
+          <p class="muted">The stencil library: original line art, free to use on your walls. Each one opens at a sensible real size; change it to fit your wall.</p>
+        </div>
+      </div>
+      <div class="lb-top">
+        <anvil-component type="TextBox" name="search_box" prop:placeholder="Search stencils" prop:role='["lb-search"]'></anvil-component>
+        <div class="lb-chips">
+          <anvil-component type="RepeatingPanel" name="cats_panel" prop:item_template="WallTracer.Items.CatChip" prop:role='["wt-chips"]'></anvil-component>
+        </div>
+      </div>
+      <anvil-component type="RepeatingPanel" name="stencils_panel" prop:item_template="WallTracer.Items.StencilCard" prop:role='["lb-grid"]'></anvil-component>
+      <div class="ui-empty lb-none" anvil:name="none_box">
+        <i class="ic ic-search" aria-hidden="true"></i>
+        <h2>Nothing called "<span anvil:dom-node="none_q"></span>"</h2>
+        <p>Try another word, or make it with the Lettering maker or your own picture.</p>
+      </div>
+    </div>
+  </anvil-block>
+</anvil-form>

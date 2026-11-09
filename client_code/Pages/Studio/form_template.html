@@ -1,0 +1,55 @@
+<anvil-form layout="WallTracer.Layouts.Shell">
+  <anvil-block slot="content">
+    <div class="ui-wrap">
+      <div class="st-head">
+        <div>
+          <h1 anvil:name="h_member">Hello <span anvil:dom-node="first_name"></span>, what are we <span class="ui-squiggle">tracing</span>?</h1>
+          <h1 anvil:name="h_guest">What are we <span class="ui-squiggle">tracing</span> today?</h1>
+        </div>
+        <div class="st-stats" anvil:name="stats">
+          <span><b anvil:dom-node="n_count"></b><span anvil:dom-node="n_count_word">walls</span></span>
+          <span><b anvil:dom-node="n_minutes"></b>traced</span>
+          <span><b anvil:dom-node="n_done"></b>finished</span>
+        </div>
+      </div>
+
+      <div class="st-banner" anvil:name="guest_banner">
+        <i class="ic ic-info" aria-hidden="true"></i>
+        <p><b>You're trying WallTracer without an account.</b> Projects stay in this browser only. Sign up (free) to keep them and open them on your headset.</p>
+        <a class="ui-btn accent sm" href="#auth/signup">Sign up free</a>
+      </div>
+
+      <div class="st-new">
+        <button type="button" anvil:name="new_upload" anvil:on-dom:click="self.new_upload_click"><span class="st-ic"><i class="ic ic-upload" aria-hidden="true"></i></span><span><b>From your picture</b><small>A photo, a drawing, a logo. Or drop it on this page.</small></span></button>
+        <button type="button" anvil:name="new_library" anvil:on-dom:click="self.new_library_click"><span class="st-ic"><i class="ic ic-layers" aria-hidden="true"></i></span><span><b>From the library</b><small><span anvil:dom-node="n_stencils">18</span> ready-made stencils and templates.</small></span></button>
+        <button type="button" anvil:name="new_lettering" anvil:on-dom:click="self.new_lettering_click"><span class="st-ic"><i class="ic ic-type" aria-hidden="true"></i></span><span><b>Lettering</b><small>A name, a quote, a sign in a nice font.</small></span></button>
+      </div>
+
+      <anvil-component type="RepeatingPanel" name="projects_panel" prop:item_template="WallTracer.Items.ProjectCard" prop:role='["st-grid"]'></anvil-component>
+
+      <div class="ui-card st-empty" anvil:name="empty_box">
+        <div><svg viewBox="0 0 360 260" aria-hidden="true"><rect x="10" y="10" width="340" height="200" rx="14" fill="var(--c-surface)" stroke="var(--c-line)"/><path d="M10 210h340" stroke="var(--c-line)" stroke-width="2"/><rect x="0" y="210" width="360" height="40" rx="8" fill="var(--c-surface-2)"/><g stroke="var(--c-accent)" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="6 7"><path d="M110 170c20-60 50-100 70-60s40 30 70-40"/></g><g stroke="var(--c-brand)" stroke-width="3" fill="none" stroke-linecap="round"><path d="M100 50v-10h10M250 40h10v10M260 170v10h-10M110 180h-10v-10"/></g><g transform="translate(240 120) rotate(35)"><rect x="-6" y="-46" width="12" height="70" rx="3" fill="var(--c-warn)"/><path d="M-6 24h12l-6 14z" fill="var(--c-ink)"/></g></svg></div>
+        <div>
+          <h2>Your first wall</h2>
+          <p class="muted">Pick a picture, choose how it looks, set its real size, then open it in your headset and trace it with a pencil.</p>
+          <p class="small muted st-or">Or start with one of these:</p>
+          <anvil-component type="RepeatingPanel" name="starters_panel" prop:item_template="WallTracer.Items.Starter" prop:role='["st-starters"]'></anvil-component>
+        </div>
+      </div>
+
+      <div anvil:name="device_part">
+        <div class="st-sec">
+          <h2>On this device</h2>
+          <anvil-component type="Button" name="move_all_button" prop:text="Save all to my account" prop:role='["btn", "btn-sm", "btn-accent", "ic-upload"]'></anvil-component>
+        </div>
+        <p class="muted small st-sec-lead">You made these before signing in. Save them to your account to use them anywhere.</p>
+        <anvil-component type="RepeatingPanel" name="device_panel" prop:item_template="WallTracer.Items.ProjectCard" prop:role='["st-grid"]'></anvil-component>
+      </div>
+
+      <div class="st-tip">
+        <i class="ic ic-headset" aria-hidden="true"></i>
+        <div><b>On your Quest:</b> open this site in the Meta Quest Browser, sign in, and press <b>Trace</b> on a project. Prepare projects on your computer or phone first; they're waiting in the headset. <a href="#guide">Read the guide</a></div>
+      </div>
+    </div>
+  </anvil-block>
+</anvil-form>

@@ -1,0 +1,92 @@
+<anvil-form layout="WallTracer.Layouts.Shell">
+  <anvil-block slot="content">
+    <div class="ui-wrap">
+      <div class="ui-page-head"><div><h1>Admin</h1><p class="muted">Only admins see this page.</p></div></div>
+      <nav class="ui-tabs" aria-label="Admin sections">
+        <a href="#admin/overview" anvil:name="tab_overview"><i class="ic ic-grid" aria-hidden="true"></i>Overview</a>
+        <a href="#admin/showcase" anvil:name="tab_showcase"><i class="ic ic-heart" aria-hidden="true"></i>Showcase</a>
+        <a href="#admin/stencils" anvil:name="tab_stencils"><i class="ic ic-layers" aria-hidden="true"></i>Stencils</a>
+        <a href="#admin/feedback" anvil:name="tab_feedback"><i class="ic ic-inbox" aria-hidden="true"></i>Feedback</a>
+        <a href="#admin/users" anvil:name="tab_users"><i class="ic ic-users" aria-hidden="true"></i>Users</a>
+        <a href="#admin/demo" anvil:name="tab_demo"><i class="ic ic-database" aria-hidden="true"></i>Demo data</a>
+      </nav>
+
+      <div anvil:name="overview_part">
+        <div class="ad-stats">
+          <a class="ui-card ui-stat ad-stat" href="#admin/users"><anvil-component type="Label" name="s_users" prop:role='["stat-num"]'></anvil-component><span>people signed up</span></a>
+          <a class="ui-card ui-stat ad-stat" href="#admin/users"><anvil-component type="Label" name="s_admins" prop:role='["stat-num"]'></anvil-component><anvil-component type="Label" name="s_admins_label" prop:role='["fine-print"]'></anvil-component></a>
+          <a class="ui-card ui-stat ad-stat" href="#admin/feedback"><anvil-component type="Label" name="s_feedback" prop:role='["stat-num"]'></anvil-component><span>new feedback</span></a>
+          <a class="ui-card ui-stat ad-stat" href="#admin/showcase"><anvil-component type="Label" name="s_pending" prop:role='["stat-num"]'></anvil-component><span>walls to approve</span></a>
+          <div class="ui-card ui-stat ad-stat"><anvil-component type="Label" name="s_projects" prop:role='["stat-num"]'></anvil-component><span>projects</span></div>
+          <div class="ui-card ui-stat ad-stat"><anvil-component type="Label" name="s_minutes" prop:role='["stat-num"]'></anvil-component><span>traced in total</span></div>
+          <div class="ui-card ui-stat ad-stat"><anvil-component type="Label" name="s_finished" prop:role='["stat-num"]'></anvil-component><span>walls finished</span></div>
+          <a class="ui-card ui-stat ad-stat" href="#admin/stencils"><anvil-component type="Label" name="s_stencils" prop:role='["stat-num"]'></anvil-component><span>stencils in the library</span></a>
+        </div>
+        <anvil-component type="Label" name="demo_line" prop:role='["fine-print", "ad-demo-line"]'></anvil-component>
+      </div>
+
+      <div anvil:name="showcase_part">
+        <div class="ui-row ad-filter">
+          <div class="ui-seg" role="group" aria-label="Which posts">
+            <anvil-component type="Button" name="sc_pending" prop:text="To approve" prop:role='["seg"]'></anvil-component>
+            <anvil-component type="Button" name="sc_approved" prop:text="Public" prop:role='["seg"]'></anvil-component>
+            <anvil-component type="Button" name="sc_rejected" prop:text="Rejected" prop:role='["seg"]'></anvil-component>
+          </div>
+        </div>
+        <anvil-component type="RepeatingPanel" name="posts_panel" prop:item_template="WallTracer.Items.AdminPost" prop:role='["ad-sc"]'></anvil-component>
+        <div class="ui-empty" anvil:name="no_posts">
+          <i class="ic ic-heart" aria-hidden="true"></i>
+          <h2 anvil:dom-node="no_posts_title">Nothing to approve</h2>
+          <p>New walls people share show up here first.</p>
+        </div>
+      </div>
+
+      <div anvil:name="stencils_part">
+        <div class="ui-row between ad-filter">
+          <anvil-component type="Label" name="stencils_count" prop:role='["fine-print"]'></anvil-component>
+          <anvil-component type="Button" name="add_stencil_button" prop:text="Add a stencil" prop:role='["btn", "btn-primary", "btn-sm", "ic-plus"]'></anvil-component>
+        </div>
+        <anvil-component type="RepeatingPanel" name="stencils_panel" prop:item_template="WallTracer.Items.AdminStencil" prop:role='["ad-st"]'></anvil-component>
+      </div>
+
+      <div anvil:name="feedback_part">
+        <div class="ui-row ad-filter">
+          <div class="ui-seg" role="group" aria-label="Which messages">
+            <anvil-component type="Button" name="f_new" prop:text="New" prop:role='["seg"]'></anvil-component>
+            <anvil-component type="Button" name="f_read" prop:text="Read" prop:role='["seg"]'></anvil-component>
+            <anvil-component type="Button" name="f_done" prop:text="Done" prop:role='["seg"]'></anvil-component>
+            <anvil-component type="Button" name="f_all" prop:text="All" prop:role='["seg"]'></anvil-component>
+          </div>
+        </div>
+        <anvil-component type="RepeatingPanel" name="feedback_panel" prop:item_template="WallTracer.Items.FeedbackRow" prop:role='["ad-fb"]'></anvil-component>
+        <div class="ui-empty" anvil:name="no_feedback">
+          <i class="ic ic-inbox" aria-hidden="true"></i>
+          <h2>No messages here</h2>
+          <p>New feedback goes to Prepsto (prepsto.com). Older messages and requests from the app show up here.</p>
+        </div>
+      </div>
+
+      <div anvil:name="users_part">
+        <div class="ui-row ad-search">
+          <anvil-component type="TextBox" name="search_box" prop:placeholder="Search by name or email" prop:role='["ad-search-box"]'></anvil-component>
+          <anvil-component type="Button" name="search_button" prop:text="Search" prop:role='["btn", "ic-search"]'></anvil-component>
+          <anvil-component type="Label" name="users_count" prop:role='["fine-print"]'></anvil-component>
+        </div>
+        <div class="ad-table ad-users-head"><b>Name</b><b>Email</b><b>Joined</b><b>Admin</b><b>Active</b></div>
+        <anvil-component type="RepeatingPanel" name="users_panel" prop:item_template="WallTracer.Items.UserRow"></anvil-component>
+      </div>
+
+      <div anvil:name="demo_part">
+        <div class="ui-card ui-narrow ad-demo">
+          <h2 class="ad-demo-h">Demo data</h2>
+          <p class="muted">Example people and content, so the app never looks empty for the first visitors. Demo rows are flagged, so removing them never touches real data. Once removed, it stays removed until you load it again.</p>
+          <anvil-component type="Label" name="demo_status"></anvil-component>
+          <div class="ui-row">
+            <anvil-component type="Button" name="demo_load_button" prop:text="Load demo data" prop:role='["btn", "btn-primary", "ic-refresh"]'></anvil-component>
+            <anvil-component type="Button" name="demo_remove_button" prop:text="Remove demo data" prop:role='["btn", "btn-danger", "ic-trash"]'></anvil-component>
+          </div>
+        </div>
+      </div>
+    </div>
+  </anvil-block>
+</anvil-form>

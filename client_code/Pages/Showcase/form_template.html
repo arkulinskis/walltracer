@@ -1,0 +1,30 @@
+<anvil-form layout="WallTracer.Layouts.Shell">
+  <anvil-block slot="content">
+    <div class="ui-wrap">
+      <div class="ui-page-head">
+        <div>
+          <h1>Walls people <span class="ui-squiggle">traced</span></h1>
+          <p class="muted">The Showcase: finished murals, signs and doodles from the WallTracer community. Yours could be next.</p>
+        </div>
+        <anvil-component type="Button" name="share_button" prop:text="Share your wall" prop:role='["btn", "btn-primary", "ic-camera"]'></anvil-component>
+        <a class="ui-btn primary" href="#auth/signup" anvil:name="signup_link">Sign up to share yours</a>
+      </div>
+      <div class="sc-top">
+        <div class="ui-seg" anvil:name="tabs" role="group" aria-label="Whose walls">
+          <anvil-component type="Button" name="tab_all" prop:text="Everyone" prop:role='["seg"]'></anvil-component>
+          <anvil-component type="Button" name="tab_yours" prop:text="Yours" prop:role='["seg"]'></anvil-component>
+        </div>
+        <div class="ui-seg" anvil:name="sorts" role="group" aria-label="Order">
+          <anvil-component type="Button" name="sort_new" prop:text="Newest" prop:role='["seg"]'></anvil-component>
+          <anvil-component type="Button" name="sort_top" prop:text="Most loved" prop:role='["seg"]'></anvil-component>
+        </div>
+      </div>
+      <anvil-component type="RepeatingPanel" name="posts_panel" prop:item_template="WallTracer.Items.PostCard" prop:role='["sc-grid"]'></anvil-component>
+      <div class="ui-empty" anvil:name="empty_box">
+        <i class="ic ic-camera" aria-hidden="true"></i>
+        <h2 anvil:dom-node="empty_title">No walls yet</h2>
+        <p>Finish a trace, take a photo, and share it here.</p>
+      </div>
+    </div>
+  </anvil-block>
+</anvil-form>
