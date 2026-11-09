@@ -411,7 +411,7 @@ metadata:
 name: WallTracer
 native_deps:
   head_html: |
-    <script src="_/theme/legal-kit.js?v=a9db0bdace"></script>
+    <script src="_/theme/legal-kit.js?v=1a06157f76"></script>
     <!-- seo:start (APP_MAKER/seo: edit seo/apps/walltracer.json and run seo.py, not here) -->
     <link rel="canonical" href="https://walltracer.anvil.app/">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
