@@ -427,7 +427,7 @@ def growth_chart():
     return svg(W, H, "".join(b), sw=3)
 
 
-STENCILS = [
+STENCILS: list = [
     {"key": "monstera", "title": "Monstera leaf", "category": "Botanical", "level": "Easy", "cm": 70, "draw": monstera,
      "blurb": "One bold leaf with its famous slits. A perfect first trace above a desk or a plant shelf."},
     {"key": "wildflowers", "title": "Wildflower bunch", "category": "Botanical", "level": "Medium", "cm": 80, "draw": wildflowers,

@@ -1,0 +1,37 @@
+---
+properties:
+  - name: stencil
+    type: object
+    description: The stencil to edit (None = add a new one)
+  - name: categories
+    type: object
+    description: The library's categories
+  - name: levels
+    type: object
+    description: The difficulty levels
+---
+<div class="wt-dialog">
+  <anvil-component type="Label" name="heading" prop:role='["dlg-title"]'></anvil-component>
+  <div class="ui-stack-gap">
+    <div anvil:name="pick_part">
+      <anvil-component type="Button" name="pick_button" prop:text="Choose a picture (line art works best)" prop:role='["btn", "btn-block", "ic-upload"]'></anvil-component>
+      <img class="ad-st-prev" anvil:name="preview" alt="The picture you chose">
+    </div>
+    <label class="ui-field"><span>Title</span>
+      <anvil-component type="TextBox" name="title_box"></anvil-component></label>
+    <div class="ui-grid two">
+      <label class="ui-field"><span>Category</span><anvil-component type="DropDown" name="category_box"></anvil-component></label>
+      <label class="ui-field"><span>Level</span><anvil-component type="DropDown" name="level_box"></anvil-component></label>
+    </div>
+    <label class="ui-field"><span>Suggested width (cm)</span>
+      <anvil-component type="TextBox" name="cm_box" prop:type="number"></anvil-component></label>
+    <label class="ui-field"><span>Description</span>
+      <anvil-component type="TextArea" name="blurb_box"></anvil-component></label>
+    <label class="ui-field"><span>Credit <em>(artist, licence)</em></span>
+      <anvil-component type="TextBox" name="credit_box"></anvil-component></label>
+  </div>
+  <div class="ui-row end wt-dialog-actions">
+    <anvil-component type="Button" name="cancel_button" prop:text="Cancel" prop:role='["btn", "btn-ghost"]'></anvil-component>
+    <anvil-component type="Button" name="save_button" prop:text="Save" prop:role='["btn", "btn-primary"]'></anvil-component>
+  </div>
+</div>

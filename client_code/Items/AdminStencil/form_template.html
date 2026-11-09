@@ -1,0 +1,16 @@
+<div class="ad-st-wrap">
+  <div class="row" anvil:name="row">
+    <img anvil:name="pic" alt="">
+    <div>
+      <anvil-component type="Label" name="title" bind:text="self.item['s']['title']" prop:role='["strong"]'></anvil-component>
+      <anvil-component type="Label" name="meta" prop:role='["fine-print"]'></anvil-component>
+    </div>
+    <div class="acts">
+      <anvil-component type="Button" name="up_button" prop:text="↑" prop:role='["btn", "btn-sm", "btn-icon"]' prop:tooltip="Move up"></anvil-component>
+      <anvil-component type="Button" name="down_button" prop:text="↓" prop:role='["btn", "btn-sm", "btn-icon"]' prop:tooltip="Move down"></anvil-component>
+      <anvil-component type="Button" name="edit_button" prop:role='["btn", "btn-sm", "btn-icon", "ic-edit"]' prop:tooltip="Edit"></anvil-component>
+      <anvil-component type="Button" name="pub_button" prop:text="Hide" prop:role='["btn", "btn-sm"]'></anvil-component>
+      <anvil-component type="Button" name="delete_button" prop:role='["btn", "btn-sm", "btn-icon", "btn-danger", "ic-trash"]' prop:tooltip="Delete"></anvil-component>
+    </div>
+  </div>
+</div>

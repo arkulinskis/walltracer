@@ -1,0 +1,135 @@
+<anvil-form layout="WallTracer.Layouts.Shell">
+  <anvil-block slot="content">
+    <div class="wt-page">
+<section class="lp-hero"><div class="ui-wrap"><div><h1>Your wall is the canvas. <em>Your headset is the projector.</em></h1>
+<p class="lp-lead">Trace anything onto any wall: pick a picture, pin it to your real wall in passthrough, put the controllers down and trace it with a pencil. Hide it with one button to check your lines. No projector, no hand-drawn grid, no guessing.</p>
+<div class="lp-cta" anvil:name="guest_cta"><a class="ui-btn primary lg" href="#studio">Try it now, no account <i class="ic ic-arrow" aria-hidden="true"></i></a><a class="ui-btn lg" href="#auth/signup">Sign up free</a></div><div class="lp-cta" anvil:name="member_cta"><a class="ui-btn primary lg" href="#studio">Open your studio <i class="ic ic-arrow" aria-hidden="true"></i></a></div>
+<div class="lp-proof"><span><i class="ic ic-check" aria-hidden="true"></i>Meta Quest 3, 3S, Pro and 2</span><span><i class="ic ic-check" aria-hidden="true"></i>True to size, to the centimetre</span><span><i class="ic ic-check" aria-hidden="true"></i>Free</span></div>
+</div>
+<div class="lp-art" aria-hidden="true"><svg viewBox="0 0 520 470"><defs><filter id="lpglow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3.2"/></filter></defs><rect x="8" y="8" width="504" height="380" rx="26" fill="var(--c-surface)" stroke="var(--c-line)" stroke-width="2"/><rect x="8" y="370" width="504" height="92" rx="22" fill="var(--c-surface-2)"/><g class="lp-trace"><g stroke="var(--c-accent)" stroke-width="7" fill="none" opacity=".45" filter="url(#lpglow)"><path d="M170 330 C 120 300 100 230 128 180 C 152 132 214 110 250 120 C 300 112 352 150 362 200 C 376 262 330 318 268 334 C 240 342 200 342 170 330 Z"/><path d="M170 330 C 210 280 240 200 250 120"/></g>
+<g stroke="#2fe0cf" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M170 330 C 120 300 100 230 128 180 C 152 132 214 110 250 120 C 300 112 352 150 362 200 C 376 262 330 318 268 334 C 240 342 200 342 170 330 Z"/><path d="M170 330 C 210 280 240 200 250 120"/><path d="M132 205 L196 222 L136 232 M152 160 L212 190 L162 178 M346 192 L292 214 L350 222 M330 150 L280 182 L322 168 M180 318 L222 280 L206 330"/></g>
+</g>
+<g stroke="var(--c-ink)" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".78"><path d="M170 330 C 120 300 100 230 128 180 C 152 132 214 110 250 120"/><path d="M132 205 L196 222 L136 232 M152 160 L212 190 L162 178"/><path d="M170 330 C 200 290 222 240 236 180"/></g>
+<g stroke="var(--c-brand)" stroke-width="3" stroke-linecap="round"><path d="M86 92h28M100 78v28M396 92h28M410 78v28M86 362h0M396 352h28M410 338v28M86 352h28M100 338v28"/></g>
+<g transform="translate(412 210)"><circle cx="34" cy="40" r="30" fill="var(--c-ink)" opacity=".9"/><rect x="-2" y="26" width="58" height="30" rx="14" fill="var(--c-brand)"/><rect x="6" y="33" width="42" height="13" rx="6" fill="var(--c-surface)" opacity=".85"/><path d="M8 80 C 0 120 0 190 10 250 L70 250 C 80 190 78 120 64 80 Z" fill="var(--c-ink)" opacity=".9"/><path d="M14 100 C -40 110 -84 120 -128 118" stroke="var(--c-ink)" stroke-width="18" stroke-linecap="round" fill="none" opacity=".9"/><g transform="translate(-140 116) rotate(-28)"><rect x="-4" y="-34" width="9" height="40" rx="2" fill="#f2b632"/><path d="M-4 6h9l-4.5 10z" fill="var(--c-ink)"/></g>
+</g>
+</svg>
+<div class="chip c1"><span class="k">A</span>Hide / show the picture</div>
+<div class="chip c2"><i class="ic ic-ruler" aria-hidden="true"></i>70 × 61 cm · locked <i class="ic ic-lock" aria-hidden="true"></i></div>
+</div>
+</div>
+</section>
+<section class="lp-section ytf" id="watch"><div class="ui-wrap"><div class="ytf-in"><div class="ytf-copy"><h2 class="ytf-title"><svg viewBox="0 0 28 20" width="20" height="14" aria-hidden="true"><rect width="28" height="20" rx="5" fill="#FF0033"/><path d="M11.2 5.8v8.4l7.3-4.2z" fill="#fff"/></svg>See WallTracer in about a minute</h2>
+<p>A short video tour of what WallTracer does and how it works.</p>
+<a class="ytf-link" href="https://www.youtube.com/watch?v=TavbKRtrFuw" target="_blank" rel="noopener">Watch on YouTube &#8599;</a></div>
+<div><div class="ytf-frame" anvil:dom-node="yt_frame"><button type="button" class="ytf-cover" anvil:dom-node="yt_cover" aria-label="Play the WallTracer video (1:16)"><img src="_/theme/yt-cover.jpg" alt="" loading="lazy" decoding="async" width="960" height="540"><span class="ytf-play" aria-hidden="true"><svg viewBox="0 0 68 48" width="68" height="48"><path d="M66.5 7.7a8.5 8.5 0 0 0-6-6C55.3.3 34 .3 34 .3s-21.3 0-26.5 1.4a8.5 8.5 0 0 0-6 6C.1 13 .1 24 .1 24s0 11 1.4 16.3a8.5 8.5 0 0 0 6 6c5.2 1.4 26.5 1.4 26.5 1.4s21.3 0 26.5-1.4a8.5 8.5 0 0 0 6-6C67.9 35 67.9 24 67.9 24s0-11-1.4-16.3z" fill="#FF0033"/><path d="M45 24 27 14v20z" fill="#fff"/></svg>
+</span><span class="ytf-len">1:16</span></button></div>
+<p class="ytf-note">The video loads from YouTube when you press play.</p>
+</div>
+</div>
+</div>
+</section>
+<section class="lp-section" id="how"><div class="ui-wrap"><div class="lp-head"><h2>How it works</h2>
+<p>From a picture on your phone to pencil lines on your wall.</p>
+</div>
+<div class="lp-steps four"><div class="ui-card lp-step"><h3>Pick a picture</h3>
+<p class="muted">Your drawing, a photo, a logo, lettering, or a stencil from the library. Choose its look and real size.</p>
+</div>
+<div class="ui-card lp-step"><h3>Pin it to the wall</h3>
+<p class="muted">In the headset, aim at the wall and pull the trigger, or touch the wall at three points. Slide, resize, lock.</p>
+</div>
+<div class="ui-card lp-step"><h3>Put the controllers down</h3>
+<p class="muted">The picture stays exactly where you locked it. Pick up your pencil and trace, hands free.</p>
+</div>
+<div class="ui-card lp-step"><h3>Hide it to check</h3>
+<p class="muted">Press A or X, or pinch your free hand: the picture vanishes and you see only your lines. Pinch again to carry on.</p>
+</div>
+</div>
+</div>
+</section>
+<section class="lp-section"><div class="ui-wrap"><div class="lp-head"><h2>Better than a projector</h2>
+<p>The old trick for murals, minus the dark room and the shadows.</p>
+</div>
+<div class="lp-vs"><div class="ui-card no"><h3><i class="ic ic-x" aria-hidden="true"></i>A projector</h3>
+<ul><li><i class="ic ic-x" aria-hidden="true"></i>Needs a dark room</li>
+<li><i class="ic ic-x" aria-hidden="true"></i>Keystone distortion on anything but a square-on wall</li>
+<li><i class="ic ic-x" aria-hidden="true"></i>Your body casts a shadow on the picture</li>
+<li><i class="ic ic-x" aria-hidden="true"></i>Cables, stands and a projector to buy</li>
+</ul>
+</div>
+<div class="ui-card yes"><h3><i class="ic ic-headset" aria-hidden="true"></i>WallTracer</h3>
+<ul><li><i class="ic ic-check" aria-hidden="true"></i>Works in daylight, in passthrough</li>
+<li><i class="ic ic-check" aria-hidden="true"></i>No distortion, at any angle, on walls, tables and floors</li>
+<li><i class="ic ic-check" aria-hidden="true"></i>Nothing to block: the picture is in your eyes</li>
+<li><i class="ic ic-check" aria-hidden="true"></i>Just the headset you already own</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section class="lp-section"><div class="ui-wrap"><div class="lp-head"><h2>Made for real walls and real pencils</h2>
+</div>
+<div class="ui-grid lp-feats"><div class="ui-card lp-feature"><i class="ic ic-sparkle" aria-hidden="true"></i><h3>Five looks</h3>
+<p>Clean lines, photo outlines, paint-by-number tones, silhouettes, or the photo itself.</p>
+</div>
+<div class="ui-card lp-feature"><i class="ic ic-ruler" aria-hidden="true"></i><h3>True to size</h3>
+<p>Type 120 cm and it is 120 cm on your wall. Even a person-for-scale preview.</p>
+</div>
+<div class="ui-card lp-feature"><i class="ic ic-hand" aria-hidden="true"></i><h3>Hands-free</h3>
+<p>Hand tracking takes over when you put the controllers down. Your pencil hand is ignored.</p>
+</div>
+<div class="ui-card lp-feature"><i class="ic ic-blink" aria-hidden="true"></i><h3>Blink and spotlight</h3>
+<p>Auto-peek every few seconds, or light up one grid square at a time and tick it off.</p>
+</div>
+<div class="ui-card lp-feature"><i class="ic ic-cross" aria-hidden="true"></i><h3>Come back tomorrow</h3>
+<p>Registration crosses and remembered spots let you continue exactly where you stopped.</p>
+</div>
+<div class="ui-card lp-feature"><i class="ic ic-layers" aria-hidden="true"></i><h3>Stencil library</h3>
+<p>Botanicals, animals, patterns, kids&#39; murals and handy templates, ready to trace.</p>
+</div>
+<div class="ui-card lp-feature"><i class="ic ic-type" aria-hidden="true"></i><h3>Lettering maker</h3>
+<p>Names, quotes and shop signs in eight lovely fonts, outlined for painting.</p>
+</div>
+<div class="ui-card lp-feature"><i class="ic ic-play" aria-hidden="true"></i><h3>Practice room</h3>
+<p>No headset yet? Place, lock and trace in a virtual room right in your browser.</p>
+</div>
+<div class="ui-card lp-feature"><i class="ic ic-clock" aria-hidden="true"></i><h3>Progress saved</h3>
+<p>Minutes traced, squares done and finished walls, on every device you sign in on.</p>
+</div>
+</div>
+</div>
+</section>
+<section class="lp-section" anvil:name="show_section"><div class="ui-wrap"><div class="lp-head"><h2>Fresh from the showcase</h2>
+<p>Walls traced by people like you.</p>
+</div>
+<anvil-component type="RepeatingPanel" name="show_panel" prop:item_template="WallTracer.Items.ShowThumb" prop:role='["lp-show"]'></anvil-component>
+<p class="lp-more"><a class="ui-btn" href="#showcase">See all the walls <i class="ic ic-arrow" aria-hidden="true"></i></a></p>
+</div>
+</section>
+<section class="lp-section"><div class="ui-wrap"><div class="lp-head"><h2>Questions</h2>
+</div>
+<div class="lp-faq"><details><summary>Which headsets work?</summary><p>Meta Quest 3 and 3S give the best, full-colour passthrough. Quest Pro and Quest 2 work too (Quest 2 in black and white). Android phones with AR work on a tripod.</p>
+</details>
+<details><summary>Do I need to install anything?</summary><p>No. Open this site in the Meta Quest Browser, sign in and press Trace. Prepare your pictures on any computer or phone first.</p>
+</details>
+<details><summary>How accurate is it?</summary><p>Very, once it&#39;s locked: within a few millimetres on a well-lit wall. For big murals, trace the corner crosses first so you can line it up again any time.</p>
+</details>
+<details><summary>Will the picture stay still when I put the controllers down?</summary><p>Yes. Locking pins it to the room (with a spatial anchor when the headset supports it), and hand tracking takes over.</p>
+</details>
+<details><summary>Is it free?</summary><p>Yes, WallTracer is free. Without an account you can try everything; with one, your projects are saved and waiting in your headset.</p>
+</details>
+<details><summary>Who can see my pictures?</summary><p>Only you. Projects are private. Only photos you choose to share in the Showcase are public, after a moderator approves them.</p>
+</details>
+</div>
+</div>
+</section>
+<section class="lp-section"><div class="ui-wrap"><div class="lp-band"><div><h2>Got a blank wall?</h2>
+<p>Pick a picture now. It takes a minute, and it&#39;s free.</p>
+</div>
+<a class="ui-btn lg" href="#studio" anvil:name="band_guest">Start a wall</a><a class="ui-btn lg" href="#studio" anvil:name="band_member">Open your studio</a></div>
+</div>
+</section>
+
+    </div>
+  </anvil-block>
+</anvil-form>

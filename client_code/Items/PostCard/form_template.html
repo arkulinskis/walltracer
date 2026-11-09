@@ -1,0 +1,12 @@
+<div class="sc-card-wrap">
+  <article class="sc-card">
+    <button type="button" class="ph" anvil:name="photo_button" anvil:on-dom:click="self.open_click"><img anvil:name="photo" alt="" loading="lazy"></button>
+    <div class="bd">
+      <anvil-component type="Label" name="title" bind:text="self.item['post']['title']" prop:role='["sc-title"]'></anvil-component>
+      <div class="meta">
+        <span><span class="ui-badge" anvil:name="status"></span><span anvil:dom-node="by"></span></span>
+        <anvil-component type="Button" name="like_button" prop:role='["sc-like", "ic-heart"]'></anvil-component>
+      </div>
+    </div>
+  </article>
+</div>

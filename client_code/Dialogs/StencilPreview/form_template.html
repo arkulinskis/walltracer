@@ -1,0 +1,21 @@
+---
+properties:
+  - name: stencil
+    type: object
+    description: The stencil to show
+---
+<div class="wt-dialog">
+  <div class="lb-big"><img anvil:name="pic" alt=""></div>
+  <anvil-component type="Label" name="title" prop:role='["dlg-title"]'></anvil-component>
+  <div class="ui-row lb-badges">
+    <span class="ui-badge" anvil:name="level"></span>
+    <span class="ui-badge" anvil:dom-node="category"></span>
+    <span class="ui-badge"><i class="ic ic-ruler" aria-hidden="true"></i><span anvil:dom-node="size"></span></span>
+  </div>
+  <anvil-component type="Label" name="blurb" prop:role='["muted-text"]'></anvil-component>
+  <anvil-component type="Label" name="credit" prop:role='["fine-print"]'></anvil-component>
+  <div class="ui-row end wt-dialog-actions">
+    <anvil-component type="Button" name="close_button" prop:text="Close" prop:role='["btn", "btn-ghost"]'></anvil-component>
+    <anvil-component type="Button" name="use_button" prop:text="Trace this" prop:role='["btn", "btn-primary", "ic-plus"]'></anvil-component>
+  </div>
+</div>

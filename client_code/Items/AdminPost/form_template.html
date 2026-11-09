@@ -1,0 +1,16 @@
+<div class="ad-sc-wrap">
+  <div class="ui-card ad-sc-card">
+    <img anvil:name="photo" alt="">
+    <div class="ad-sc-head">
+      <anvil-component type="Label" name="title" bind:text="self.item['post']['title']" prop:role='["strong"]'></anvil-component>
+      <span class="ui-badge" anvil:name="demo_badge">Demo</span>
+    </div>
+    <anvil-component type="Label" name="who" prop:role='["fine-print", "ad-who"]'></anvil-component>
+    <anvil-component type="Label" name="caption" prop:role='["ad-caption"]'></anvil-component>
+    <div class="ui-row">
+      <anvil-component type="Button" name="approve_button" prop:text="Approve" prop:role='["btn", "btn-sm", "btn-primary", "ic-check"]'></anvil-component>
+      <anvil-component type="Button" name="reject_button" prop:text="Reject" prop:role='["btn", "btn-sm", "ic-x"]'></anvil-component>
+      <anvil-component type="Button" name="delete_button" prop:role='["btn", "btn-sm", "btn-icon", "btn-danger", "ic-trash"]' prop:tooltip="Delete"></anvil-component>
+    </div>
+  </div>
+</div>

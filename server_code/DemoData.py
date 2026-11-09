@@ -7,6 +7,7 @@ is flagged is_demo=True, so remove() deletes exactly what load() added.
 """
 import datetime as dt
 import re
+from typing import Any
 
 from anvil.tables import app_tables
 
@@ -41,7 +42,7 @@ def wall_scene(key, wall, paint):
     """An illustration of a painted wall (SVG text): the stencil in `paint` on a `wall`, with a floor and a plant for scale."""
     st = [s for s in StencilArt.STENCILS if s["key"] == key][0]
     art = st["draw"]().replace("#ffffff", wall).replace(StencilArt.INK, paint)
-    m = re.search(r'viewBox="0 0 (\d+) (\d+)"', art)
+    m: Any = re.search(r'viewBox="0 0 (\d+) (\d+)"', art)
     aw, ah = int(m.group(1)), int(m.group(2))
     W, H, floor = 1200, 900, 760
     box_w, box_h = 760, 560

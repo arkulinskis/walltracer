@@ -1,0 +1,27 @@
+---
+properties:
+  - name: preset
+    type: string
+    default_value: ""
+    description: The project to share (its id), if it came from a project
+---
+<div class="wt-dialog">
+  <h2 class="dlg-h">Share your wall</h2>
+  <p class="muted">A photo of the finished wall (not the screen). A moderator has a quick look before it goes public.</p>
+  <div class="ui-stack-gap">
+    <button type="button" class="sc-drop" anvil:name="pick" anvil:on-dom:click="self.pick_click">
+      <span anvil:name="pick_empty" class="sc-drop-in"><i class="ic ic-camera" aria-hidden="true"></i><b>Choose a photo</b><span class="small">JPEG, PNG or WebP</span></span>
+      <span anvil:name="pick_full" class="sc-drop-in"><img class="sc-prev" anvil:name="preview" alt="Your photo"><span class="small">Tap to choose another</span></span>
+    </button>
+    <label class="ui-field"><span>Title</span>
+      <anvil-component type="TextBox" name="title_box" prop:placeholder="e.g. Mountains over our bed"></anvil-component></label>
+    <label class="ui-field"><span>A few words <em>(optional)</em></span>
+      <anvil-component type="TextArea" name="caption_box" prop:placeholder="Tools, paint, tips, how long it took…"></anvil-component></label>
+    <label class="ui-field"><span>Which project? <em>(adds the time and size)</em></span>
+      <anvil-component type="DropDown" name="project_box"></anvil-component></label>
+  </div>
+  <div class="ui-row end wt-dialog-actions">
+    <anvil-component type="Button" name="cancel_button" prop:text="Cancel" prop:role='["btn", "btn-ghost"]'></anvil-component>
+    <anvil-component type="Button" name="share_button" prop:text="Share" prop:role='["btn", "btn-primary", "ic-share"]'></anvil-component>
+  </div>
+</div>

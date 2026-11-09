@@ -1,0 +1,16 @@
+---
+properties:
+  - name: project
+    type: object
+    description: The project summary the menu is for
+---
+<div class="wt-dialog">
+  <anvil-component type="Label" name="title" prop:role='["dlg-title"]'></anvil-component>
+  <anvil-component type="Label" name="meta" prop:role='["fine-print"]'></anvil-component>
+  <div class="ui-list wt-menu-list">
+    <anvil-component type="Button" name="done_button" prop:text="Mark as finished" prop:role='["btn", "btn-block", "ic-flag"]'></anvil-component>
+    <anvil-component type="Button" name="share_button" prop:text="Share a photo in the Showcase" prop:role='["btn", "btn-block", "ic-share"]'></anvil-component>
+    <anvil-component type="Button" name="dup_button" prop:text="Duplicate (for a second wall)" prop:role='["btn", "btn-block", "ic-copy"]'></anvil-component>
+    <anvil-component type="Button" name="del_button" prop:text="Delete" prop:role='["btn", "btn-block", "btn-danger", "ic-trash"]'></anvil-component>
+  </div>
+</div>
