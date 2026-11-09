@@ -2759,7 +2759,7 @@
     var KEYS = { h: 'toggle', ' ': 'toggle', g: 'grid', l: null, o: 'opacity', m: 'look', s: 'spot', d: 'cell', b: 'blink', c: 'marks', p: 'pencil', q: 'turnL', e: 'turnR', '+': 'bigger', '=': 'bigger', '-': 'smaller', arrowright: 'next', arrowleft: 'prev' };
     function onKey(e) {
       if (st.mode !== 'flat' || e.target.matches && e.target.matches('input, textarea, select')) return;
-      var k = e.key.toLowerCase();
+      var k = (e.key || '').toLowerCase();
       if (k === 'escape') { finish(); return; }
       if (k === 'l') { act(st.phase === 'locked' ? 'unlock' : st.phase === 'adjust' ? 'lock' : ''); return; }
       var a = KEYS[k];
