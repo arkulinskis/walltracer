@@ -463,7 +463,7 @@
     }
     /* adjust phase: pull the trigger at another spot and the picture jumps there, keeping its size and turn */
     function stickAt(hit) {
-      setPose(hit.pos, hit.normal, false);
+      setPose(hit.pos, hit.normal, false); st.surface.fromHit = true;
       st.shown = true; applyVis(); changed(); haptic(null, 0.5, 40);
       say('Moved here. Click the right stick to lock it.');
     }
@@ -568,7 +568,35 @@
     function unlock() { st.phase = 'adjust'; st.shown = true; st.peek = false; st.blinkOff = false; applyVis(); savePhase(); say('Unlocked. Pull the trigger on the wall to move it, or hold grip to drag.'); }
     function resizeBy(k) { S.width_cm = Math.max(5, Math.min(1000, S.width_cm * k)); applySize(); say(WT.fmtSize(pseudo())); }
     function turnBy(d) { S.rot = Math.max(-180, Math.min(180, Math.round((S.rot + d) * 10) / 10)); applyOrientation(); moved(); say('Turned ' + S.rot + '°'); }
-    function nudge(m) { if (!st.surface) return; art.position.addScaledVector(st.surface.normal, m); moved(); say(m > 0 ? 'Pulled out 2 mm' : 'Pushed in 2 mm'); }
+    function nudge(m) {
+      if (!st.surface) return;
+      art.position.addScaledVector(st.surface.normal, m); st.surface.point.copy(art.position); moved();
+      if (st.surface.fromHit) saveDepthFix(depthFix + m);
+      say(m > 0 ? 'Pulled out 2 mm' : 'Pushed in 2 mm');
+    }
+    /* Depth fix. Quest's room scan can put the wall a few cm off the real one, which shows as parallax.
+       Touching the real wall with a controller tip measures the error; it's kept (per browser) and added to
+       every later wall hit, so moving the picture doesn't bring the error back. + = towards you. */
+    var depthFix = Math.max(-0.2, Math.min(0.2, +UI.store.get('trace_depth_fix', 0) || 0));
+    function saveDepthFix(v) { depthFix = Math.max(-0.2, Math.min(0.2, Math.round(v * 10000) / 10000)); UI.store.set('trace_depth_fix', depthFix); }
+    function wallHit(m) {
+      var pos = new V3().setFromMatrixPosition(m), n = new V3(m.elements[4], m.elements[5], m.elements[6]).normalize();
+      if (depthFix) { var toYou = n.clone(); if (toYou.dot(headPos().sub(pos)) < 0) toYou.negate(); pos.addScaledVector(toYou, depthFix); }
+      return { pos: pos, normal: n };
+    }
+    // a controller tip held against the real wall, near the picture: snap the picture's depth to it
+    function touchDepth(inp) {
+      if (!inp || inp.isHand || !st.surface) return false;
+      var n = st.surface.normal, off = inp.origin.clone().sub(art.position), d = off.dot(n);
+      var side = off.clone().addScaledVector(n, -d).length();
+      if (Math.abs(d) > 0.12 || side > Math.max(1, S.width_cm / 100)) return false;
+      art.position.addScaledVector(n, d); st.surface.point.copy(art.position); moved();
+      if (st.surface.fromHit) saveDepthFix(depthFix + d);
+      haptic(inp.src, 0.7, 70); changed();
+      say(Math.abs(d) < 0.003 ? 'Depth checked: it was already on the wall.'
+        : 'Depth fixed: ' + (d > 0 ? 'pulled out ' : 'pushed in ') + (Math.abs(d) * 100).toFixed(1) + ' cm. Moving it keeps the fix.');
+      return true;
+    }
     function cycleLook() {
       var keys = WT.LOOKS.map(function (l) { return l.key; });
       S.look = keys[(keys.indexOf(S.look) + 1) % keys.length];
@@ -941,8 +969,7 @@
           if (res.length) {
             var hp = res[0].getPose(ref);
             if (hp) {
-              var hm = new T.Matrix4().fromArray(hp.transform.matrix);
-              inp.hit = { pos: new V3().setFromMatrixPosition(hm), normal: new V3(hm.elements[4], hm.elements[5], hm.elements[6]).normalize() };
+              inp.hit = wallHit(new T.Matrix4().fromArray(hp.transform.matrix));
             }
           }
         }
@@ -975,7 +1002,7 @@
         var best = aim ? aim.hit : null;
         if (!best && xr.viewerHit && st.method === 'aim') {
           var vr = frame.getHitTestResults(xr.viewerHit);
-          if (vr.length) { var vpz = vr[0].getPose(ref); if (vpz) { var vm = new T.Matrix4().fromArray(vpz.transform.matrix); best = { pos: new V3().setFromMatrixPosition(vm), normal: new V3(vm.elements[4], vm.elements[5], vm.elements[6]).normalize() }; } }
+          if (vr.length) { var vpz = vr[0].getPose(ref); if (vpz) best = wallHit(new T.Matrix4().fromArray(vpz.transform.matrix)); }
         }
         if (st.method === 'aim' && best) {
           reticle.visible = true; reticle.scale.setScalar(1); reticle.position.copy(best.pos);
@@ -1082,12 +1109,13 @@
       if (st.phase === 'place') {
         if (st.method === 'aim') {
           var hit = (inp && inp.hit) || (src.hand ? xr.lastBest : null) || (xr.viewerHit ? xr.lastBest : null);
-          if (hit) placeAt(hit.pos, hit.normal, false); else say('No wall found there. Aim at the wall, hold grip to grab it from the air, or choose Touch 3 points in the menu.');
+          if (hit) { placeAt(hit.pos, hit.normal, false); st.surface.fromHit = true; } else say('No wall found there. Aim at the wall, hold grip to grab it from the air, or choose Touch 3 points in the menu.');
         } else if (st.method === 'touch' && inp && !inp.isHand) addTouchPoint(inp.origin);
         else if (st.method === 'float') placeFloat();
         return;
       }
       if (st.phase === 'adjust') {
+        if (touchDepth(inp)) return;
         if (inp && inp.hit) { stickAt(inp.hit); return; }
         say(xr.hasHitTest ? 'No wall found there. Aim at the wall, or hold grip and drag it.' : 'Hold grip and drag it, or choose Place again in the menu.');
         return;
@@ -1214,7 +1242,7 @@
       }
       var l = ['Y: menu  ·  hold Y: leave VR'];
       if (ph === 'place') return l.concat(['X: float in front', 'Click stick: grid']);
-      if (ph === 'adjust') return ['Stick: slide it on the wall', 'Grip (hold): drag it'].concat(l, ['X: hide / show  ·  click stick: grid']);
+      if (ph === 'adjust') return ['Stick: slide it on the wall', 'Grip (hold): drag it', 'Tip on wall + trigger: depth'].concat(l, ['X: hide / show  ·  click stick: grid']);
       return ['Stick: move the spotlight square', 'Grip (hold): peek behind it'].concat(l, ['X: hide / show  ·  click stick: grid']);
     }
     var TIP_W = 560, TIP_H = 250, TIP_M = 0.16;
