@@ -584,17 +584,33 @@
       if (depthFix) { var toYou = n.clone(); if (toYou.dot(headPos().sub(pos)) < 0) toYou.negate(); pos.addScaledVector(toYou, depthFix); }
       return { pos: pos, normal: n };
     }
-    // a controller tip held against the real wall, near the picture: snap the picture's depth to it
-    function touchDepth(inp) {
-      if (!inp || inp.isHand || !st.surface) return false;
-      var n = st.surface.normal, off = inp.origin.clone().sub(art.position), d = off.dot(n);
+    /* Both controller tips held against the real wall near the picture, then a trigger: the picture snaps onto
+       the plane through the two tips. That sets the depth and also straightens it to the wall's angle.
+       One tip alone only gets a nudge to add the other, so a stray tip can't throw it off. */
+    function tipOnWall(i) {
+      if (!i || i.isHand || !st.surface) return null;
+      var n = st.surface.normal, off = i.origin.clone().sub(art.position), d = off.dot(n);
       var side = off.clone().addScaledVector(n, -d).length();
-      if (Math.abs(d) > 0.12 || side > Math.max(1, S.width_cm / 100)) return false;
-      art.position.addScaledVector(n, d); st.surface.point.copy(art.position); moved();
-      if (st.surface.fromHit) saveDepthFix(depthFix + d);
-      haptic(inp.src, 0.7, 70); changed();
-      say(Math.abs(d) < 0.003 ? 'Depth checked: it was already on the wall.'
-        : 'Depth fixed: ' + (d > 0 ? 'pulled out ' : 'pushed in ') + (Math.abs(d) * 100).toFixed(1) + ' cm. Moving it keeps the fix.');
+      return Math.abs(d) <= 0.12 && side <= Math.max(1, S.width_cm / 100) ? d : null;
+    }
+    function touchDepth(inp) {
+      if (tipOnWall(inp) === null) return false;            // this tip isn't at the wall: a normal trigger
+      var L = xr.inputs.left, R = xr.inputs.right, dl = tipOnWall(L), dr = tipOnWall(R);
+      if (dl === null || dr === null) { say('Put the other controller tip on the wall too, then pull the trigger.'); haptic(inp.src, 0.3, 40); return true; }
+      var n = st.surface.normal, n2 = n.clone(), u = R.origin.clone().sub(L.origin), len = u.length();
+      if (len > 0.08) {                                    // tips far enough apart to read the wall's angle
+        u.divideScalar(len); n2.addScaledVector(u, -n2.dot(u)).normalize();
+        if (n2.angleTo(n) > 0.26) { say('The two tips don\'t agree. Hold both flat against the wall and try again.'); haptic(inp.src, 0.3, 40); return true; }
+      }
+      var turn = n2.angleTo(n) * 180 / Math.PI, mid = L.origin.clone().add(R.origin).multiplyScalar(0.5);
+      var before = art.position.clone();
+      art.position.addScaledVector(n2, mid.clone().sub(art.position).dot(n2));
+      var d = art.position.clone().sub(before).dot(n2);
+      st.surface.normal = n2; st.surface.point.copy(art.position); applyOrientation(); moved();
+      if (st.surface.fromHit) saveDepthFix(depthFix + (dl + dr) / 2);
+      haptic(L.src, 0.7, 70); haptic(R.src, 0.7, 70); changed();
+      say((Math.abs(d) < 0.003 ? 'Snapped: it was already on the wall' : 'Snapped to the wall: ' + (d > 0 ? 'pulled out ' : 'pushed in ') + (Math.abs(d) * 100).toFixed(1) + ' cm')
+        + (turn >= 0.5 ? ', straightened ' + turn.toFixed(1) + '°' : '') + '. Moving it keeps the depth.');
       return true;
     }
     function cycleLook() {
@@ -1242,7 +1258,7 @@
       }
       var l = ['Y: menu  ·  hold Y: leave VR'];
       if (ph === 'place') return l.concat(['X: float in front', 'Click stick: grid']);
-      if (ph === 'adjust') return ['Stick: slide it on the wall', 'Grip (hold): drag it', 'Tip on wall + trigger: depth'].concat(l, ['X: hide / show  ·  click stick: grid']);
+      if (ph === 'adjust') return ['Stick: slide it on the wall', 'Grip (hold): drag it', '2 tips on wall + trigger: snap'].concat(l, ['X: hide / show  ·  click stick: grid']);
       return ['Stick: move the spotlight square', 'Grip (hold): peek behind it'].concat(l, ['X: hide / show  ·  click stick: grid']);
     }
     var TIP_W = 560, TIP_H = 250, TIP_M = 0.16;
