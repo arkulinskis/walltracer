@@ -745,11 +745,14 @@
       if (xr.session || xr.entering) return;  // already in, or on the way in
       xr.entering = true;
       var init = { optionalFeatures: ['local-floor', 'hand-tracking', 'hit-test', 'anchors', 'plane-detection', 'dom-overlay'] };
-      if (kind === 'ar') init.domOverlay = { root: ov };
+      // Passthrough also asks for an "unbounded" space: on Quest 3 that turns the boundary off, so you can walk
+      // anywhere along the wall. Headsets without it (Quest 2) fall back to local-floor as before.
+      if (kind === 'ar') { init.domOverlay = { root: ov }; init.optionalFeatures.unshift('unbounded'); }
       navigator.xr.requestSession(kind === 'ar' ? 'immersive-ar' : 'immersive-vr', init).then(function (s) {
         if (!alive) { s.end(); return; }
         var feats = s.enabledFeatures;
-        renderer.xr.setReferenceSpaceType(!feats || feats.indexOf('local-floor') >= 0 ? 'local-floor' : 'local');
+        renderer.xr.setReferenceSpaceType(kind === 'ar' && feats && feats.indexOf('unbounded') >= 0 ? 'unbounded'
+          : (!feats || feats.indexOf('local-floor') >= 0 ? 'local-floor' : 'local'));
         return renderer.xr.setSession(s).then(function () { xr.entering = false; startXR(s, kind); });
       }).catch(function (e) {
         xr.entering = false;
