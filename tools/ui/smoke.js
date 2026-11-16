@@ -2,7 +2,7 @@
    sideways. Signed out: landing, sign in / up, studio, library (+ a category), showcase, guide, then a project made in
    this browser (a stencil from the library) in the editor and in the tracing session (practice room).
    As a new member: studio, library, showcase (+ yours), profile, an account project in the editor and the tracing
-   session. As admin (arkulinskis@gmail.com becomes admin on first sign-in): every Admin tab.
+   session. As admin (admin@example.com becomes admin on first sign-in): every Admin tab.
    Python/JS errors are caught by ui_test.py from the browser log. Resolves to {ok, log}. */
 (async function () {
   const log = [], bad = [];
@@ -128,8 +128,8 @@
 
     // ---- admin
     const pw = 'Wt-smoke-Adm1n-7Qx';
-    const fresh = await signUp('Arkadi Admin', 'arkulinskis@gmail.com', pw);
-    if (!fresh) await signIn('arkulinskis@gmail.com', pw);
+    const fresh = await signUp('Arkadi Admin', 'admin@example.com', pw);
+    if (!fresh) await signIn('admin@example.com', pw);
     for (const t of ['overview', 'showcase', 'stencils', 'feedback', 'users', 'demo']) {
       await open('#admin/' + t, /Only admins/);
       if (t === 'stencils' && !$$('.ad-st-wrap .row').length) bad.push('#admin/stencils: no stencils listed');
