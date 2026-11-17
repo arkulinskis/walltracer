@@ -13,7 +13,7 @@ from . import common as C
 from . import Stencils
 
 MAX_PROJECTS = 80
-LOOKS = ("photo", "lines", "outline", "zones", "stencil")
+LOOKS = ("photo", "lines", "outline", "zones", "shapes", "stencil")
 STATUSES = ("tracing", "done")
 
 # Every project setting: default, then a (min, max) range, a [list] of allowed values, bool, or "color".
@@ -41,6 +41,8 @@ SETTINGS: dict = {
     "blink": (0, [0, 3, 5, 10]),       # seconds between automatic peeks (0 = off)
     "wall": ("#f3efe8", "color"),      # wall colour for the flat preview
     "rot": (0, (-180, 180)),           # extra turn on the wall, degrees
+    "smooth": (True, bool),            # outline/lines/silhouette drawn as smooth vector curves (wt-vector.js)
+    "trace": ("logo", ["logo", "photo", "pixel"]),  # shapes look: colour-trace style
 }
 COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 

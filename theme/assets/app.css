@@ -560,7 +560,10 @@ html.ui-modal-open { overflow: hidden; }
 .ed-panel .ui-card { padding: 18px; }
 .ed-panel h3 { display: flex; align-items: center; gap: 8px; font-size: 1.08rem; margin-bottom: 12px; }
 .ed-panel h3 .ui-ic { color: var(--c-brand); }
-.ed-looks { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.ed-looks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.ed-trace { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.ed-svg { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--c-line); }
+.ed-svg .small { flex: 1 1 180px; }
 .ed-looks button { border: 1px solid var(--c-line); background: var(--c-surface); border-radius: 11px; padding: 6px 4px 7px; cursor: pointer; font: 600 .76rem/1.1 var(--font-body); color: var(--c-muted); }
 .ed-looks button canvas { display: block; width: 100%; aspect-ratio: 1; border-radius: 7px; background: #3a3f44; margin-bottom: 5px; object-fit: contain; }
 .ed-looks button.on { border-color: var(--c-brand); color: var(--c-ink); box-shadow: 0 0 0 2px var(--c-brand-soft); }

@@ -34,7 +34,8 @@
 
     function layout() {
       var lk = WT.LOOKS.filter(function (l) { return l.key === S.look; })[0];
-      var detailLabel = { lines: 'Darkness', outline: 'Detail', zones: 'Smoothness', stencil: 'Darkness' }[S.look];
+      var detailLabel = { lines: 'Darkness', outline: 'Detail', zones: 'Smoothness', stencil: 'Darkness', shapes: 'Detail' }[S.look];
+      var vec = WT.vector && WT.vector.applies(S);
       view.innerHTML = '<div class="ui-wrap">' +
         '<div class="ed-top"><a class="ui-btn ghost icon" href="#studio" data-go="studio" aria-label="Back to the studio">' + UI.icon('back') + '</a>' +
         '<input class="title" value="' + esc(P.title) + '" maxlength="80" data-title aria-label="Project name"><span class="ed-saved" data-saved></span>' +
@@ -50,8 +51,13 @@
         }).join('') + '</div><p class="small muted" style="margin:0 0 8px">' + esc(lk.hint) + '</p>' +
         (S.look !== 'photo' ? slider('detail', detailLabel, 0, 100, 1, S.detail) : '') +
         (S.look === 'zones' ? slider('levels', 'Tones', 2, 8, 1, S.levels) : '') +
+        (S.look === 'shapes' && WT.vector ? '<div class="ed-trace"><span class="small muted">Style</span><div class="ui-seg">' + WT.vector.TRACES.map(function (t) {
+          return '<button data-trace="' + t[0] + '" class="' + (S.trace === t[0] ? 'on' : '') + '" aria-pressed="' + (S.trace === t[0]) + '">' + esc(t[1]) + '</button>';
+        }).join('') + '</div></div>' : '') +
         slider('contrast', 'Contrast', -100, 100, 1, S.contrast, signed) + slider('brightness', 'Brightness', -100, 100, 1, S.brightness, signed) +
-        '<div class="ed-checks"><label class="ui-check"><input type="checkbox" data-set="invert"' + (S.invert ? ' checked' : '') + '> Swap dark and light (for pale pictures)</label></div></div>' +
+        '<div class="ed-checks">' + (['outline', 'lines', 'stencil'].indexOf(S.look) >= 0 ? '<label class="ui-check"><input type="checkbox" data-set="smooth"' + (S.smooth ? ' checked' : '') + '> Smooth vector lines (clean curves instead of pixel steps)</label>' : '') +
+        '<label class="ui-check"><input type="checkbox" data-set="invert"' + (S.invert ? ' checked' : '') + '> Swap dark and light (for pale pictures)</label></div>' +
+        (vec ? '<div class="ed-svg"><button class="ui-btn sm" data-svg>' + UI.icon('download') + 'Download SVG</button><span class="small muted">The lines as a vector file at the real size, for printing, cutting or a projector.</span></div>' : '') + '</div>' +
 
         '<div class="ui-card"><h3>' + UI.icon('palette') + 'In the headset</h3>' +
         (S.look !== 'photo' ? '<div class="wt-swatches" style="margin-bottom:10px">' + WT.COLORS.map(function (c) {
@@ -99,7 +105,7 @@
     }
 
     function processed(maxSide) {
-      var key = JSON.stringify([S.look, S.detail, S.levels, S.contrast, S.brightness, S.color, S.thickness, S.halo, S.invert, S.mirror, S.rotate, maxSide]);
+      var key = JSON.stringify([S.look, S.detail, S.levels, S.contrast, S.brightness, S.color, S.thickness, S.halo, S.invert, S.mirror, S.rotate, S.smooth, S.trace, maxSide]);
       if (!cache[key]) { cache = {}; cache[key] = WT.process(img, S, maxSide); }
       return cache[key];
     }
@@ -178,7 +184,7 @@
     });
     view.addEventListener('change', function (e) {
       var t = e.target, k = t.getAttribute('data-set');
-      if (k && t.type === 'checkbox') set(k, t.checked, ['grid', 'marks', 'halo'].indexOf(k) >= 0);
+      if (k && t.type === 'checkbox') set(k, t.checked, ['grid', 'marks', 'halo', 'smooth'].indexOf(k) >= 0);
       else if (k && t.tagName === 'SELECT') set(k, k === 'blink' ? parseInt(t.value, 10) : t.value);
       else if (t.matches('[data-title]')) {
         var v = t.value.trim();
@@ -192,6 +198,11 @@
       if ((b = e.target.closest('[data-look]'))) { set('look', b.getAttribute('data-look'), true); return; }
       if ((b = e.target.closest('[data-color]'))) { set('color', b.getAttribute('data-color'), true); return; }
       if ((b = e.target.closest('[data-wall]'))) { set('wall', b.getAttribute('data-wall'), true); return; }
+      if ((b = e.target.closest('[data-trace]'))) { set('trace', b.getAttribute('data-trace'), true); return; }
+      if (e.target.closest('[data-svg]')) {
+        try { WT.vector.download(img, S, P.title); UI.toast('SVG saved to your downloads', 'ok'); } catch (err) { UI.toast('That SVG could not be made: ' + err.message, 'error'); }
+        return;
+      }
       if ((b = e.target.closest('[data-unit]'))) { set('unit', b.getAttribute('data-unit'), true); return; }
       if ((b = e.target.closest('[data-preset]'))) { set('width_cm', +b.getAttribute('data-preset'), true); return; }
       if ((b = e.target.closest('[data-turn]'))) { set('rotate', (S.rotate + parseInt(b.getAttribute('data-turn'), 10) + 360) % 360, true); return; }
@@ -262,7 +273,7 @@
     /* ================================================================== textures */
     var pseudo = function () { return { w: P.w, h: P.h, settings: S }; };
     function lookCanvas() {
-      var key = [S.look, S.detail, S.levels, S.contrast, S.brightness, S.color, S.thickness, S.halo, S.invert, S.mirror, S.rotate].join('|');
+      var key = [S.look, S.detail, S.levels, S.contrast, S.brightness, S.color, S.thickness, S.halo, S.invert, S.mirror, S.rotate, S.smooth, S.trace].join('|');
       if (!looks[key]) looks[key] = WT.process(img, S, 2048);
       return looks[key];
     }

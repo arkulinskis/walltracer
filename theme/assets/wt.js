@@ -39,7 +39,7 @@
   /* ------------------------------------------------------------------ settings */
   WT.DEFAULTS = { look: 'lines', detail: 50, levels: 4, contrast: 0, brightness: 0, color: '#00e5ff', thickness: 2, halo: true, invert: false,
     mirror: false, rotate: 0, opacity: 0.85, grid: false, cols: 4, labels: true, marks: true, marks_hidden: true, width_cm: 100, unit: 'cm',
-    pencil: 'right', blink: 0, wall: '#f3efe8', rot: 0 };
+    pencil: 'right', blink: 0, wall: '#f3efe8', rot: 0, smooth: true, trace: 'logo' };
   WT.settings = function (s) {
     var o = {};
     Object.keys(WT.DEFAULTS).forEach(function (k) { o[k] = s && s[k] != null ? s[k] : WT.DEFAULTS[k]; });
@@ -47,8 +47,9 @@
   };
   WT.LOOKS = [
     { key: 'lines', label: 'Lines', hint: 'The dark lines of the picture; everything else is see-through. Best for line art and the library.' },
-    { key: 'outline', label: 'Outline', hint: 'Finds the edges in a photo and draws them as thin lines.' },
+    { key: 'outline', label: 'Outline', hint: 'Finds the edges in a photo and joins them into smooth, unbroken lines.' },
     { key: 'zones', label: 'Tones', hint: 'Splits the picture into a few tones with lines between them, like paint-by-numbers.' },
+    { key: 'shapes', label: 'Shapes', hint: 'Traces the picture into smooth colour shapes with a line round each one, like a vector drawing. Great for logos, cartoons and murals.' },
     { key: 'stencil', label: 'Silhouette', hint: 'Dark areas become see-through shapes with a crisp edge.' },
     { key: 'photo', label: 'Photo', hint: 'The picture as it is. Lower the opacity to see your pencil through it.' }];
   WT.lookLabel = function (k) { return (WT.LOOKS.filter(function (l) { return l.key === k; })[0] || WT.LOOKS[0]).label; };
@@ -158,6 +159,7 @@
     }
     return out;
   }
+  WT.boxBlur = boxBlur;
   function dilate(m, W, H, r) {
     if (r < 1) return m;
     var tmp = new Uint8Array(W * H), out = new Uint8Array(W * H), x, y, c;
@@ -212,19 +214,32 @@
     return out;
   }
 
-  /* The picture drawn upright (turned + mirrored) on white, at most maxSide px. */
-  WT.base = function (img, s, maxSide) {
+  /* The picture drawn upright (turned + mirrored) on white, at most maxSide px (crisp: no smoothing, for pixel art). */
+  WT.base = function (img, s, maxSide, crisp) {
     s = WT.settings(s);
     var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, rot = ((s.rotate % 360) + 360) % 360, swap = rot === 90 || rot === 270;
     var ow = swap ? ih : iw, oh = swap ? iw : ih, k = Math.min(1, (maxSide || 2048) / Math.max(ow, oh));
     var cv = canvas(ow * k, oh * k), g = cv.getContext('2d', { willReadFrequently: true });
     g.fillStyle = '#ffffff'; g.fillRect(0, 0, cv.width, cv.height);
+    if (crisp) g.imageSmoothingEnabled = false;
     g.save(); g.translate(cv.width / 2, cv.height / 2);
     if (s.mirror) g.scale(-1, 1);
     g.rotate(rot * Math.PI / 180);
     g.drawImage(img, -iw * k / 2, -ih * k / 2, iw * k, ih * k);
     g.restore();
     return cv;
+  };
+
+  /* Luminance 0-255 of a base canvas, with contrast, brightness and swap dark/light applied. */
+  WT.luma = function (cv, s) {
+    var W = cv.width, H = cv.height, n = W * H, d = cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H).data, L = new Float32Array(n);
+    var cf = Math.pow((s.contrast + 100) / 100, 2), br = s.brightness * 1.28;
+    for (var i = 0; i < n; i++) {
+      var l = (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2] - 128) * cf + 128 + br;
+      l = l < 0 ? 0 : l > 255 ? 255 : l;
+      L[i] = s.invert ? 255 - l : l;
+    }
+    return L;
   };
 
   WT.process = function (img, s, maxSide) {
@@ -242,6 +257,7 @@
       g.putImageData(id, 0, 0);
       return cv;
     }
+    if (WT.vector && WT.vector.applies(s)) return WT.vector.render(img, s, cv, maxSide);  // smooth vector lines (wt-vector.js)
     var L = new Float32Array(n);
     for (i = 0; i < n; i++) {
       var l = adj(0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]);

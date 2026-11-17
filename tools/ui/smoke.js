@@ -82,6 +82,25 @@
   async function engines(id, who) {
     await open('#edit/' + encodeURIComponent(id), /Trace on the wall/, { wait: 1500 });
     if (!$('.wt-screen-host canvas')) bad.push(who + ' #edit: no preview canvas');
+    // vector tracing (wt-vector.js): six looks, Shapes styles, smooth lines, Download SVG, a valid SVG file
+    if ($$('[data-look]').length !== 6) bad.push(who + ' #edit: expected 6 looks, got ' + $$('[data-look]').length);
+    if (!window.ImageTracer || !WT.vector) bad.push(who + ' #edit: vector tracing not loaded');
+    else {
+      $('[data-look="shapes"]').click();
+      await until(() => $$('[data-trace]').length === 3 && $('[data-svg]'), 'Shapes styles + Download SVG');
+      $('[data-trace="photo"]').click();
+      await until(() => ($('[data-trace="photo"]') || {}).className === 'on', 'Photo style on');
+      $('[data-look="outline"]').click();
+      await until(() => $('[data-set="smooth"]') && $('[data-svg]'), 'Outline smooth toggle');
+      const pic = await WT.store.get(id), im = await WT.loadImage(pic.image);
+      for (const look of ['outline', 'lines', 'stencil', 'shapes']) {
+        const svg = WT.vector.svg(im, { look: look, width_cm: 80 }, 'test');
+        const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+        if (doc.getElementsByTagName('parsererror').length || !/<path /.test(svg) || !/width="80cm"/.test(svg)) bad.push(who + ' SVG for ' + look + ' is not valid');
+      }
+      $('[data-look="lines"]').click();
+      await sleep(600);
+    }
     await open('#trace/' + encodeURIComponent(id), /practi|room|wall/i, { root: '.wt-screen-host', wait: 2000 });
     const head = $('.ui-header');
     if (head && head.offsetParent !== null) bad.push(who + ' #trace: the header should be hidden');
