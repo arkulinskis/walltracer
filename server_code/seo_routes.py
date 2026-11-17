@@ -40,7 +40,7 @@ SEO = {
   "Pin a picture to a real wall at its real size in Quest passthrough",
   "Hands-free tracing: put the controllers down and use a pencil",
   "Hide and show the picture with one button or a pinch",
-  "Five looks: lines, outline, tones, silhouette and photo",
+  "Six looks: lines, outline, colour shapes, tones, silhouette and photo, each saved as an SVG if you like",
   "A stencil library and a lettering maker",
   "A gallery-wall planner with nail spots"
  ],
@@ -59,7 +59,7 @@ SEO = {
   ]
  ],
  "site": "https://walltracer.anvil.app",
- "updated": "2026-11-16",
+ "updated": "2026-11-17",
  "icon": "icon-512.png",
  "colors": {
   "bg": "#efe9e1",
