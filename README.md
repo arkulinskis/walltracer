@@ -27,8 +27,12 @@ For DIY muralists, parents painting a kid's room, sign painters, and anyone hang
   pencil hand; notes. Saves by itself.
 - **Trace** (`#trace/<id>`): the session. In a headset (WebXR `immersive-ar` passthrough on Quest, AR on Android, or VR):
   place by **aiming** at the wall (hit-test ring + ghost preview), **touching 3 points** with a controller tip, or **floating** it;
-  adjust (grip slides along the wall, right stick size/turn, left stick in/out, menu: level, 2 mm push/pull); **lock** (spatial anchor,
-  persisted on Quest so the next session restores the spot); then hands-free: **A/X or a free-hand pinch hides/shows**, B opacity,
+  three steps (click the right stick = next, left stick = back): **1 place & size** (trigger moves it, grip drags, right stick
+  size/turn, left stick slides); **2 fit corners** (dots on the 4 corners, 4 edges and middle: left stick or trigger picks one,
+  right stick pushes it into / out of the wall, a controller tip on the wall + trigger snaps it there; the picture bends
+  smoothly between the corners); **3 look & trace** (right stick opacity/look, a button per look, More tools for grid,
+  spotlight, blink, crosses). Held by a spatial anchor, persisted on Quest with the step and corner depths, so the next
+  session restores the spot; then hands-free: **A/X or a free-hand pinch hides/shows**, B opacity,
   Y or a long pinch opens the floating menu, blink peeks automatically, **spotlight** one grid square at a time, mark squares done.
   On any screen: the same steps in a 3D **practice room** (click to place, drag/scroll/Q/E to adjust, a pencil that draws on the
   virtual wall, keyboard shortcuts). Minutes, squares and size are saved every minute and at the end; a summary offers

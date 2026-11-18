@@ -533,6 +533,20 @@ html.ui-modal-open { overflow: hidden; }
 .gd-table { width: 100%; border-collapse: collapse; font-size: .93rem; margin-top: 12px; }
 .gd-table td { padding: 9px 8px; border-bottom: 1px solid var(--c-line); vertical-align: top; }
 .gd-table td:first-child { font-weight: 600; white-space: nowrap; width: 38%; }
+.gd-scroll { overflow-x: auto; margin-top: 12px; }
+.gd-map { min-width: 600px; margin-top: 0; }
+.gd-map th { text-align: left; padding: 9px 8px; border-bottom: 2px solid var(--c-line); font-size: .85rem; color: var(--c-muted); }
+.gd-map td:first-child { width: 14%; }
+@media (max-width: 640px) {
+  .gd-map { min-width: 0; }
+  .gd-map tr:first-child { display: none; }
+  .gd-map td { display: block; border: 0; padding: 3px 4px; }
+  .gd-map td:first-child { width: auto; padding-top: 12px; border-top: 1px solid var(--c-line); }
+  .gd-map td:nth-child(2)::before { content: "1 Place & size: "; font-weight: 600; color: var(--c-muted); }
+  .gd-map td:nth-child(3)::before { content: "2 Fit corners: "; font-weight: 600; color: var(--c-muted); }
+  .gd-map td:nth-child(4)::before { content: "3 Look & trace: "; font-weight: 600; color: var(--c-muted); }
+  .gd-map td[colspan]::before { content: none; }
+}
 .gd details { background: var(--c-surface); border: 1px solid var(--c-line); border-radius: var(--radius); padding: 4px 18px; margin-bottom: 8px; }
 .gd summary { cursor: pointer; font-weight: 700; padding: 12px 0; }
 .gd details p { color: var(--c-muted); margin: 0 0 14px; }
@@ -598,7 +612,7 @@ html.ui-modal-open { overflow: hidden; }
 .tr-x { width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(24, 21, 19, .78); color: #fff; cursor: pointer; display: grid; place-items: center; flex: none; }
 .tr-bar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px; max-width: calc(100vw - 24px); display: flex; gap: 6px; padding: 7px;
   background: rgba(250, 247, 242, .95); border-radius: 20px; box-shadow: 0 16px 40px rgba(0,0,0,.35); overflow-x: auto; scrollbar-width: none; }
-.tr-bar button { border: 0; background: transparent; color: #2a2522; border-radius: 13px; padding: 7px 9px; min-width: 62px; cursor: pointer;
+.tr-bar button { flex: none; border: 0; background: transparent; color: #2a2522; border-radius: 13px; padding: 7px 9px; min-width: 62px; cursor: pointer;
   display: grid; justify-items: center; gap: 3px; font: 600 .75rem/1.1 var(--font-body); white-space: nowrap; }
 .tr-bar button .ui-ic { width: 21px; height: 21px; }
 .tr-bar button:hover { background: #ece4d8; }

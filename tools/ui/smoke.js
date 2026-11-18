@@ -104,6 +104,41 @@
     await open('#trace/' + encodeURIComponent(id), /practi|room|wall/i, { root: '.wt-screen-host', wait: 2000 });
     const head = $('.ui-header');
     if (head && head.offsetParent !== null) bad.push(who + ' #trace: the header should be hidden');
+    // the three steps in the practice room: 1 place + size, 2 push a corner in / out, 3 look + opacity
+    const flatBtn = $('[data-flat]');
+    if (!flatBtn) { bad.push(who + ' #trace: no practice-room button'); return; }
+    flatBtn.click();
+    await until(() => window.WT_TRACE && WT_TRACE.state().mode === 'flat', 'practice room');
+    if (!WT_TRACE.placeAt(0.5, 0.45)) { bad.push(who + ' #trace: could not place on the wall'); return; }
+    let s = WT_TRACE.state();
+    if (s.step !== 1 || s.phase !== 'adjust') bad.push(who + ' trace: not on step 1 after placing (' + s.phase + ')');
+    if (!$('[data-act="step2"]') || $('[data-act="grid"]')) bad.push(who + ' trace step 1: wrong buttons');
+    $('[data-act="step2"]').click(); await sleep(150);
+    s = WT_TRACE.state();
+    if (s.step !== 2 || s.handles !== 9) bad.push(who + ' trace step 2: ' + JSON.stringify({ step: s.step, handles: s.handles }));
+    WT_TRACE.select('tl'); $('[data-act="out"]').click(); $('[data-act="out"]').click(); await sleep(100);
+    s = WT_TRACE.state();
+    if (Math.round(s.fit[0] * 1000) !== 4 || s.fit[1] !== 0) bad.push(who + ' trace step 2: top-left corner not pulled out 4 mm: ' + JSON.stringify(s.fit));
+    WT_TRACE.select('b'); $('[data-act="in"]').click(); await sleep(100);
+    s = WT_TRACE.state();
+    if (Math.round(s.fit[2] * 1000) !== -2 || Math.round(s.fit[3] * 1000) !== -2) bad.push(who + ' trace step 2: bottom edge not pushed in: ' + JSON.stringify(s.fit));
+    $('[data-act="step3"]').click(); await sleep(150);
+    s = WT_TRACE.state();
+    if (s.step !== 3 || s.handles !== 0) bad.push(who + ' trace step 3: ' + JSON.stringify({ step: s.step, handles: s.handles }));
+    if (Math.round(s.fit[0] * 1000) !== 4) bad.push(who + ' trace step 3: the corner fit was lost');
+    const op = s.opacity;
+    $('[data-act="opdown"]').click(); await sleep(100);
+    if (!(WT_TRACE.state().opacity < op)) bad.push(who + ' trace step 3: Fainter did nothing');
+    const look0 = WT_TRACE.state().look;
+    $('[data-act="look"]').click(); await sleep(400);
+    if (WT_TRACE.state().look === look0) bad.push(who + ' trace step 3: the Look button does nothing');
+    WT_TRACE.act('look-lines'); await sleep(300);
+    if (WT_TRACE.state().look !== 'lines') bad.push(who + ' trace step 3: the headset look buttons do nothing');
+    if ($('[data-act="grid"]')) bad.push(who + ' trace step 3: extra tools should wait behind More tools');
+    $('[data-act="more"]').click(); await sleep(100);
+    if (!$('[data-act="grid"]')) bad.push(who + ' trace step 3: More tools shows no grid');
+    $('[data-act="unlock"]').click(); await sleep(100);
+    if (WT_TRACE.state().step !== 2) bad.push(who + ' trace: Back to step 2 failed');
   }
   try {
     // ---- signed out

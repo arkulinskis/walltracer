@@ -240,6 +240,18 @@
   var esc = UI.esc;
   var PANEL_W = 1024;  // menu canvas px
   var AKEY = 'walltracer.anchor.', PKEY = 'walltracer.anchorphase.';  // this browser: saved wall spot + its step
+  var FKEY = 'walltracer.fit.';  // this browser: the corner depths of step 2, kept with the saved wall spot
+  /* Step 2 handles: 4 corners, 4 edges and the middle (= the whole picture). x / y in picture units (-0.5..0.5),
+     c = the corners each one moves (0 TL, 1 TR, 2 BR, 3 BL). */
+  var HANDLES = {
+    all: { x: 0, y: 0, c: [0, 1, 2, 3], label: 'Whole picture' },
+    tl: { x: -0.5, y: 0.5, c: [0], label: 'Top-left corner' }, t: { x: 0, y: 0.5, c: [0, 1], label: 'Top edge' },
+    tr: { x: 0.5, y: 0.5, c: [1], label: 'Top-right corner' }, r: { x: 0.5, y: 0, c: [1, 2], label: 'Right edge' },
+    br: { x: 0.5, y: -0.5, c: [2], label: 'Bottom-right corner' }, b: { x: 0, y: -0.5, c: [2, 3], label: 'Bottom edge' },
+    bl: { x: -0.5, y: -0.5, c: [3], label: 'Bottom-left corner' }, l: { x: -0.5, y: 0, c: [0, 3], label: 'Left edge' } };
+  var HORDER = ['tl', 't', 'tr', 'r', 'br', 'b', 'bl', 'l', 'all'];
+  var SECTOR = ['r', 'tr', 't', 'tl', 'l', 'bl', 'b', 'br'];   // left stick direction (every 45°, from the right, anticlockwise)
+  var FIT_MAX = 0.15;
 
   UI.page('trace', { title: 'Trace', chrome: false }, function (view, ctx) {
     var id = ctx.args[0];
@@ -250,15 +262,17 @@
     var st = {
       mode: 'intro',        // intro | flat | xr
       kind: null,           // ar | vr (in the headset)
-      phase: 'place',       // place | adjust | locked
+      phase: 'place',       // place | adjust (step 1: place + size) | fit (step 2: corners in / out) | locked (step 3: look + trace)
       method: 'aim',        // aim | touch | float
+      fit: { offs: [0, 0, 0, 0], sel: 'tl', all: 0, fixPend: 0, tick: 0 },   // corner depths in metres (TL, TR, BR, BL), + = towards you
+      more: false,          // step 3: the extra tracing tools (grid, spotlight, blink, crosses) shown in the menu
       shown: true, blinkOff: false, blinkT: 0,
       spot: null, panel: false, touchPts: [],
       activeMs: 0, loggedMs: 0, newSession: true, sessionMs: 0, sessionCells: 0,
       surface: null,        // {normal, point, horizontal, free}
       pencil: true, hover: null, toastT: 0
     };
-    var art, artMesh, ovMesh, room = null, reticle, tipDot, touchDots = [];
+    var art, artMesh, ovMesh, room = null, reticle, tipDot, touchDots = [], handleMeshes = {}, handleHover = null;
     var C = { art: null, comp: null, ov: null, margin: 0 }, TX = { art: null, ov: null };
     var looks = {};
     var xr = { session: null, inputs: {}, hitSources: new Map(), pendingHit: new Set(), viewerHit: null, anchor: null, wantAnchor: false,
@@ -323,6 +337,115 @@
       artMesh.scale.set(wm, hm, 1);
       var k = (C.art.width + 2 * C.margin) / C.art.width;
       ovMesh.scale.set(wm * k, hm * (C.art.height + 2 * C.margin) / C.art.height, 1);
+      placeHandles();
+    }
+
+    /* ================================================================== step 2: bend it onto the real wall */
+    /* The picture is a fine mesh; each corner has its own depth and everything between follows (bilinear), so a
+       wall the headset scanned a little crooked can be matched corner by corner. Depths live in the picture's own
+       frame, so the anchor carries them along. */
+    function zAt(x, y) {
+      var o = st.fit.offs, u = x + 0.5, v = y + 0.5;
+      return (1 - u) * (1 - v) * o[3] + u * (1 - v) * o[2] + (1 - u) * v * o[0] + u * v * o[1];
+    }
+    function bend(mesh, kx, ky) {
+      var p = mesh.geometry.attributes.position;
+      for (var i = 0; i < p.count; i++) p.setZ(i, zAt(p.getX(i) * kx, p.getY(i) * ky));
+      p.needsUpdate = true; mesh.geometry.computeBoundingSphere(); mesh.geometry.computeBoundingBox();
+    }
+    function applyFit() {
+      if (!artMesh) return;
+      bend(artMesh, 1, 1);
+      bend(ovMesh, (C.art.width + 2 * C.margin) / C.art.width, (C.art.height + 2 * C.margin) / C.art.height);
+      placeHandles();
+    }
+    function placeHandles() {
+      if (!artMesh) return;
+      var wm = S.width_cm / 100, hm = wm * C.art.height / C.art.width, show = st.phase === 'fit';
+      Object.keys(handleMeshes).forEach(function (k) {
+        var m = handleMeshes[k], h = HANDLES[k], sel = st.fit.sel === k, hov = handleHover === k;
+        m.visible = show;
+        if (!show) return;
+        m.position.set(h.x * wm, h.y * hm, zAt(h.x, h.y) + 0.003);
+        m.scale.setScalar(sel ? 1.7 : hov ? 1.3 : 1);
+        m.material.color.setHex(sel ? 0xff5d3a : hov ? 0xffffff : 0x00e5ff);
+      });
+    }
+    function mmText(z) { var n = Math.round(Math.abs(z) * 1000); return n < 1 ? 'not moved' : n + ' mm ' + (z > 0 ? 'out' : 'in'); }
+    function handleText() {
+      var k = st.fit.sel, h = HANDLES[k];
+      return h.label + ': ' + mmText(k === 'all' ? st.fit.all : zAt(h.x, h.y));
+    }
+    function selectHandle(k, quiet) {
+      if (!HANDLES[k]) return;
+      var same = st.fit.sel === k;
+      st.fit.sel = k; placeHandles();
+      if (!same) haptic(null, 0.25, 25);
+      if (!quiet) say(handleText());
+      changed();
+    }
+    function cycleHandle(d) { selectHandle(HORDER[(HORDER.indexOf(st.fit.sel) + d + HORDER.length) % HORDER.length]); }
+    /* nearest handle to a point of the picture (uv 0..1), measured in metres */
+    function handleAtUv(uv) {
+      var wm = S.width_cm / 100, hm = wm * C.art.height / C.art.width, best = null, bd = Infinity;
+      HORDER.forEach(function (k) {
+        var h = HANDLES[k], dx = (uv.x - 0.5 - h.x) * wm, dy = (uv.y - 0.5 - h.y) * hm, d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = k; }
+      });
+      return best;
+    }
+    /* push the chosen corner / edge (m metres, + = towards you); the whole picture moves the picture itself */
+    function pushSel(m, src) {
+      if (!st.surface) return;
+      var k = st.fit.sel;
+      if (k === 'all') {
+        art.position.addScaledVector(st.surface.normal, m); st.surface.point.copy(art.position); moved();
+        st.fit.all += m; st.fit.fixPend += m;
+      } else {
+        HANDLES[k].c.forEach(function (c) { st.fit.offs[c] = Math.max(-FIT_MAX, Math.min(FIT_MAX, st.fit.offs[c] + m)); });
+        applyFit();
+      }
+      st.fit.tick += Math.abs(m);
+      if (st.fit.tick >= 0.005) { st.fit.tick = 0; haptic(src || null, 0.15, 15); }   // a little click every 5 mm
+      st.fit.dirty = true;
+    }
+    /* a controller tip resting on the real wall at a corner / edge + trigger: that point jumps to the tip */
+    function snapToTip(inp) {
+      if (!inp || inp.isHand || !st.surface) return false;
+      art.updateMatrixWorld(true);
+      var p = art.worldToLocal(inp.origin.clone());
+      if (Math.abs(p.z) > 0.12) return false;
+      var wm = S.width_cm / 100, hm = wm * C.art.height / C.art.width, best = null, bd = Infinity;
+      HORDER.forEach(function (k) {
+        var h = HANDLES[k], d = Math.hypot(p.x - h.x * wm, p.y - h.y * hm);
+        if (d < bd) { bd = d; best = k; }
+      });
+      if (bd > Math.max(0.1, Math.min(wm, hm) * 0.2)) return false;
+      st.fit.sel = best;
+      var h = HANDLES[best], delta = p.z - (best === 'all' ? 0 : zAt(h.x, h.y));
+      pushSel(delta, inp.src); flushFit();
+      haptic(inp.src, 0.7, 70);
+      say(h.label + ' snapped to your controller tip (' + mmText(delta).replace('not moved', 'it was already there') + ')');
+      changed();
+      return true;
+    }
+    function flushFit() {
+      if (!st.fit.dirty) return;
+      st.fit.dirty = false;
+      if (st.fit.fixPend && st.surface && st.surface.fromHit) saveDepthFix(depthFix + st.fit.fixPend);
+      st.fit.fixPend = 0;
+      try { localStorage.setItem(FKEY + P.id, JSON.stringify(st.fit.offs.map(function (v) { return Math.round(v * 10000) / 10000; }))); } catch (e) {}
+    }
+    function loadFit() {
+      var o = null;
+      try { o = JSON.parse(localStorage.getItem(FKEY + P.id) || 'null'); } catch (e) {}
+      st.fit.offs = (o && o.length === 4) ? o.map(function (v) { return Math.max(-FIT_MAX, Math.min(FIT_MAX, +v || 0)); }) : [0, 0, 0, 0];
+      applyFit();
+    }
+    function resetFit(quiet) {
+      st.fit.offs = [0, 0, 0, 0]; st.fit.all = 0; applyFit();
+      try { localStorage.removeItem(FKEY + P.id); } catch (e) {}
+      if (!quiet) say('Flat again: every corner back on the scanned wall.');
     }
 
     /* ================================================================== the scene */
@@ -340,11 +463,15 @@
       buildTextures();
       art = new T.Group();
       var mat = new T.MeshBasicMaterial({ map: TX.art, transparent: true, opacity: S.opacity, depthWrite: false, side: T.DoubleSide, toneMapped: false });
-      artMesh = new T.Mesh(new T.PlaneGeometry(1, 1), mat);
+      artMesh = new T.Mesh(new T.PlaneGeometry(1, 1, 12, 12), mat);   // a fine mesh, so step 2 can bend it smoothly
       artMesh.position.z = 0.0008; artMesh.renderOrder = 10;
-      ovMesh = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshBasicMaterial({ map: TX.ov, transparent: true, depthWrite: false, side: T.DoubleSide, toneMapped: false }));
+      ovMesh = new T.Mesh(new T.PlaneGeometry(1, 1, 12, 12), new T.MeshBasicMaterial({ map: TX.ov, transparent: true, depthWrite: false, side: T.DoubleSide, toneMapped: false }));
       ovMesh.position.z = 0.0016; ovMesh.renderOrder = 11;
       art.add(artMesh); art.add(ovMesh);
+      HORDER.forEach(function (k) {   // step 2 handles: dots on the corners, edges and middle
+        var m = new T.Mesh(new T.SphereGeometry(k === 'all' ? 0.013 : 0.011, 18, 12), new T.MeshBasicMaterial({ color: 0x00e5ff, depthTest: false, transparent: true, opacity: 0.95 }));
+        m.renderOrder = 25; m.visible = false; art.add(m); handleMeshes[k] = m;
+      });
       art.visible = false;
       scene.add(art);
       reticle = new T.Mesh(new T.RingGeometry(0.035, 0.05, 40), new T.MeshBasicMaterial({ color: 0x00e5ff, side: T.DoubleSide, depthTest: false, transparent: true, opacity: 0.9 }));
@@ -468,15 +595,16 @@
     function placeAt(pos, normal, free) {
       setPose(pos, normal, free);
       st.phase = 'adjust'; st.shown = true; st.touchPts = []; clearTouchDots();
+      resetFit(true);
       applyVis(); changed();
-      say(st.mode === 'xr' ? 'Stuck! Pull the trigger anywhere on the wall to move it there. Click the right stick to lock.' : 'Placed. Drag it to move, scroll to resize, Q / E to turn. Then lock it.');
+      say(st.mode === 'xr' ? 'Stuck! Move it and size it, then click the right stick for step 2: fit the corners.' : 'Placed. Drag it to move, scroll to resize, Q / E to turn. Then Next.');
       if (st.mode === 'xr') haptic(null, 0.6, 60);
     }
     /* adjust phase: pull the trigger at another spot and the picture jumps there, keeping its size and turn */
     function stickAt(hit) {
       setPose(hit.pos, hit.normal, false); st.surface.fromHit = true;
       st.shown = true; applyVis(); changed(); haptic(null, 0.5, 40);
-      say('Moved here. Click the right stick to lock it.');
+      say('Moved here. Click the right stick for step 2.');
     }
     function placeFloat() {
       var h = headPos(), fwd = new V3(0, 0, -1);
@@ -502,28 +630,36 @@
     /* ================================================================== actions (toolbar + headset menu) */
     function actions() {
       var a = [], inXR = st.mode === 'xr', locked = st.phase === 'locked';
-      if (st.phase === 'place') {
+      var hide = { id: 'toggle', label: st.shown ? 'Hide picture' : 'Show picture', icon: st.shown ? 'eyeoff' : 'eye', key: 'H' };
+      if (st.phase === 'place') {                      // step 1, before it's on the wall
         if (!inXR || xr.hasHitTest) a.push({ id: 'm-aim', label: inXR ? 'Aim at wall' : 'Click to place', icon: 'target', on: st.method === 'aim' });
         if (inXR) a.push({ id: 'm-touch', label: 'Touch 3 points', icon: 'hand', on: st.method === 'touch' });
         a.push({ id: 'm-float', label: 'Float in front', icon: 'image' });
-        a.push({ id: 'look', label: 'Look: ' + WT.lookLabel(S.look), icon: 'sparkle', key: 'M' });
-      } else if (st.phase === 'adjust') {
-        a.push({ id: 'lock', label: 'Lock in place', icon: 'lock', primary: true, key: 'L' });
-        if (inXR) a.push({ id: 'toggle', label: st.shown ? 'Hide picture' : 'Show picture', icon: st.shown ? 'eyeoff' : 'eye' });
-        a.push({ id: 'replace', label: 'Place again', icon: 'target' });
+      } else if (st.phase === 'adjust') {              // step 1: move + size
+        a.push({ id: 'step2', label: 'Next: fit corners', icon: 'arrow', primary: true, key: 'L' });
         a.push({ id: 'smaller', label: 'Smaller', icon: 'chevron', key: '-' }, { id: 'bigger', label: 'Bigger', icon: 'plus', key: '+' });
         a.push({ id: 'turnL', label: 'Turn left', icon: 'rotate', key: 'Q' }, { id: 'turnR', label: 'Turn right', icon: 'rotate', key: 'E' }, { id: 'level', label: 'Level', icon: 'ruler' });
-        a.push({ id: 'out', label: 'Pull out', icon: 'arrow' }, { id: 'in', label: 'Push in', icon: 'back' });
-        a.push({ id: 'look', label: WT.lookLabel(S.look), icon: 'sparkle', key: 'M' }, { id: 'opacity', label: Math.round(S.opacity * 100) + '%', icon: 'eye', key: 'O' });
-        a.push({ id: 'grid', label: 'Grid', icon: 'grid', on: S.grid, key: 'G' }, { id: 'marks', label: 'Crosses', icon: 'cross', on: S.marks, key: 'C' });
-      } else {
-        a.push({ id: 'toggle', label: st.shown ? 'Hide picture' : 'Show picture', icon: st.shown ? 'eyeoff' : 'eye', primary: true, key: 'H' });
-        a.push({ id: 'look', label: WT.lookLabel(S.look), icon: 'sparkle', key: 'M' }, { id: 'opacity', label: Math.round(S.opacity * 100) + '%', icon: 'eye', key: 'O' });
-        a.push({ id: 'grid', label: 'Grid', icon: 'grid', on: S.grid, key: 'G' }, { id: 'spot', label: 'Spotlight', icon: 'spot', on: !!st.spot, key: 'S' });
-        if (st.spot) a.push({ id: 'prev', label: 'Prev square', icon: 'back' }, { id: 'next', label: 'Next square', icon: 'arrow' }, { id: 'cell', label: 'Square done', icon: 'check', key: 'D' });
-        a.push({ id: 'blink', label: S.blink ? 'Blink ' + S.blink + ' s' : 'Blink off', icon: 'blink', on: !!S.blink, key: 'B' }, { id: 'marks', label: 'Crosses', icon: 'cross', on: S.marks, key: 'C' });
+        a.push({ id: 'replace', label: 'Place again', icon: 'target' });
+        if (inXR) a.push(hide);
+      } else if (st.phase === 'fit') {                 // step 2: corners / edges in and out
+        a.push({ id: 'step3', label: 'Next: look', icon: 'arrow', primary: true, key: 'L' });
+        a.push({ id: 'in', label: 'Push in', icon: 'back', key: '↑' }, { id: 'out', label: 'Pull out', icon: 'arrow', key: '↓' });
+        a.push({ id: 'hnext', label: 'Next point', icon: 'target', key: '→' }, { id: 'h-all', label: 'Whole picture', icon: 'image', on: st.fit.sel === 'all' });
+        a.push({ id: 'fitreset', label: 'Flatten', icon: 'refresh' }, { id: 'step1', label: 'Back to step 1', icon: 'back' });
+        if (inXR) a.push(hide);
+      } else {                                         // step 3: look + opacity, then trace
+        hide.primary = true; a.push(hide);
+        a.push({ id: 'opdown', label: 'Fainter', icon: 'eyeoff', key: 'O' }, { id: 'opup', label: 'Stronger', icon: 'eye' });
+        if (inXR) WT.LOOKS.forEach(function (l) { a.push({ id: 'look-' + l.key, label: l.label, icon: 'sparkle', on: S.look === l.key }); });
+        else a.push({ id: 'look', label: 'Look: ' + WT.lookLabel(S.look), icon: 'sparkle', key: 'M' });   // the practice room's bar is narrow: one button
+        a.push({ id: 'more', label: st.more ? 'Fewer tools' : 'More tools', icon: 'sliders', on: st.more });
+        if (st.more) {
+          a.push({ id: 'grid', label: 'Grid', icon: 'grid', on: S.grid, key: 'G' }, { id: 'spot', label: 'Spotlight', icon: 'spot', on: !!st.spot, key: 'S' });
+          if (st.spot) a.push({ id: 'prev', label: 'Prev square', icon: 'back' }, { id: 'next', label: 'Next square', icon: 'arrow' }, { id: 'cell', label: 'Square done', icon: 'check', key: 'D' });
+          a.push({ id: 'blink', label: S.blink ? 'Blink ' + S.blink + ' s' : 'Blink off', icon: 'blink', on: !!S.blink, key: 'B' }, { id: 'marks', label: 'Crosses', icon: 'cross', on: S.marks, key: 'C' });
+        }
         if (!inXR || st.kind === 'vr') a.push({ id: 'pencil', label: 'Pencil', icon: 'pencil', on: st.pencil, key: 'P' }, { id: 'clear', label: 'Rub out', icon: 'refresh' });
-        a.push({ id: 'unlock', label: 'Unlock', icon: 'lockopen', key: 'L' });
+        a.push({ id: 'unlock', label: 'Back to step 2', icon: 'back', key: 'L' });
       }
       if (window.ArkMusic) a.push({ id: 'music', label: musicOn() ? 'Music on' : 'Music', icon: 'music', on: musicOn() });
       if (inXR) a.push({ id: 'tips', label: 'Button labels', icon: 'info', on: tipsOn() }, { id: 'close', label: 'Close menu', icon: 'x' });
@@ -549,8 +685,13 @@
       replace: function () { dropAnchor(true); st.phase = 'place'; st.shown = true; st.method = st.mode === 'xr' && !xr.hasHitTest ? 'touch' : 'aim'; art.visible = false; applyVis(); say('Choose a new spot.'); },
       smaller: function () { resizeBy(1 / 1.04); }, bigger: function () { resizeBy(1.04); },
       turnL: function () { turnBy(-1); }, turnR: function () { turnBy(1); }, level: function () { S.rot = 0; applyOrientation(); moved(); say('Level'); },
-      out: function () { nudge(0.002); }, 'in': function () { nudge(-0.002); },
+      step1: function () { goStep(1); }, step2: function () { goStep(2); }, step3: function () { goStep(3); },
+      out: function () { pushSel(0.002); flushFit(); say(handleText()); }, 'in': function () { pushSel(-0.002); flushFit(); say(handleText()); },
+      hnext: function () { cycleHandle(1); }, 'h-all': function () { selectHandle('all'); },
+      fitreset: function () { resetFit(false); },
       look: cycleLook, opacity: cycleOpacity,
+      opup: function () { stepOpacity(1); }, opdown: function () { stepOpacity(-1); },
+      more: function () { st.more = !st.more; say(st.more ? 'Grid, spotlight, blink and crosses are in the menu' : 'Fewer tools'); },
       grid: function () { S.grid = !S.grid; if (!S.grid) st.spot = null; refreshArt(); applyVis(); say(S.grid ? 'Grid on' : 'Grid off'); },
       marks: function () { S.marks = !S.marks; applyVis(); say(S.marks ? 'Crosses on' : 'Crosses off'); },
       toggle: toggleShown,
@@ -565,28 +706,38 @@
       close: function () { closePanel(); },
       exit: function () { finish(); }
     };
+    WT.LOOKS.forEach(function (l) { RUN['look-' + l.key] = function () { setLook(l.key); }; });
     function act(idv) { if (RUN[idv]) { RUN[idv](); st.dirty = true; changed(); } }
+    /* the three steps: 1 place + size (phase adjust), 2 fit the corners (fit), 3 look + trace (locked) */
+    function stepOf(ph) { return ph === 'fit' ? 2 : ph === 'locked' ? 3 : 1; }
+    function goStep(n) {
+      if (!st.surface || st.phase === 'place') { say('Place the picture first: point at the wall and pull the trigger.'); return; }
+      flushFit();
+      if (n === 3) { lock(); return; }
+      st.phase = n === 2 ? 'fit' : 'adjust'; st.shown = true; st.peek = false; st.blinkOff = false;
+      if (n === 2) st.fit.all = 0;
+      applyVis(); placeHandles(); savePhase(); changed();
+      if (st.mode === 'xr') xr.tipsUntil = performance.now() + 8000;
+      if (n === 2) say(st.mode === 'xr' ? 'Step 2: pick a corner or edge with the left stick, then push it in or out with the right stick.'
+        : 'Step 2: click a corner or edge, then scroll (or ↑ ↓) to push it in or out.');
+      else say(st.mode === 'xr' ? 'Step 1: trigger moves it, right stick sizes it. Click the right stick for step 2.' : hint());
+    }
     function changed() { if (st.mode === 'flat') drawBar(); if (st.panel) drawPanel(); }
 
     function lock() {
       if (!st.surface) return;
+      flushFit();
       st.phase = 'locked'; st.shown = true; st.blinkT = 0;
-      applyVis();
+      applyVis(); placeHandles();
       if (st.mode === 'xr') { savePhase(); xr.tipsUntil = performance.now() + 6000; setTimeout(function () { if (st.phase === 'locked') closePanel(); }, 900); }
-      say(st.mode === 'xr' ? 'Locked. Put the controllers down and trace. A / X or a pinch of your free hand hides it.' : 'Locked. Draw on the wall with the pencil; press H to hide the picture and check.');
+      say(st.mode === 'xr' ? 'Step 3: right stick up / down for opacity, left / right for the look. Then put the controllers down and trace.' : 'Step 3: pick a look and the opacity, then draw on the wall with the pencil. H hides the picture.');
       haptic(null, 0.8, 90);
     }
-    function unlock() { st.phase = 'adjust'; st.shown = true; st.peek = false; st.blinkOff = false; applyVis(); savePhase(); say('Unlocked. Pull the trigger on the wall to move it, or hold grip to drag.'); }
+    function unlock() { goStep(2); }
     function resizeBy(k) { S.width_cm = Math.max(5, Math.min(1000, S.width_cm * k)); applySize(); say(WT.fmtSize(pseudo())); }
     function turnBy(d) { S.rot = Math.max(-180, Math.min(180, Math.round((S.rot + d) * 10) / 10)); applyOrientation(); moved(); say('Turned ' + S.rot + '°'); }
-    function nudge(m) {
-      if (!st.surface) return;
-      art.position.addScaledVector(st.surface.normal, m); st.surface.point.copy(art.position); moved();
-      if (st.surface.fromHit) saveDepthFix(depthFix + m);
-      say(m > 0 ? 'Pulled out 2 mm' : 'Pushed in 2 mm');
-    }
     /* Depth fix. Quest's room scan can put the wall a few cm off the real one, which shows as parallax.
-       Touching the real wall with a controller tip measures the error; it's kept (per browser) and added to
+       Pushing the whole picture in or out in step 2 measures the error; it's kept (per browser) and added to
        every later wall hit, so moving the picture doesn't bring the error back. + = towards you. */
     var depthFix = Math.max(-0.2, Math.min(0.2, +UI.store.get('trace_depth_fix', 0) || 0));
     function saveDepthFix(v) { depthFix = Math.max(-0.2, Math.min(0.2, Math.round(v * 10000) / 10000)); UI.store.set('trace_depth_fix', depthFix); }
@@ -594,35 +745,6 @@
       var pos = new V3().setFromMatrixPosition(m), n = new V3(m.elements[4], m.elements[5], m.elements[6]).normalize();
       if (depthFix) { var toYou = n.clone(); if (toYou.dot(headPos().sub(pos)) < 0) toYou.negate(); pos.addScaledVector(toYou, depthFix); }
       return { pos: pos, normal: n };
-    }
-    /* Both controller tips held against the real wall near the picture, then a trigger: the picture snaps onto
-       the plane through the two tips. That sets the depth and also straightens it to the wall's angle.
-       One tip alone only gets a nudge to add the other, so a stray tip can't throw it off. */
-    function tipOnWall(i) {
-      if (!i || i.isHand || !st.surface) return null;
-      var n = st.surface.normal, off = i.origin.clone().sub(art.position), d = off.dot(n);
-      var side = off.clone().addScaledVector(n, -d).length();
-      return Math.abs(d) <= 0.12 && side <= Math.max(1, S.width_cm / 100) ? d : null;
-    }
-    function touchDepth(inp) {
-      if (tipOnWall(inp) === null) return false;            // this tip isn't at the wall: a normal trigger
-      var L = xr.inputs.left, R = xr.inputs.right, dl = tipOnWall(L), dr = tipOnWall(R);
-      if (dl === null || dr === null) { say('Put the other controller tip on the wall too, then pull the trigger.'); haptic(inp.src, 0.3, 40); return true; }
-      var n = st.surface.normal, n2 = n.clone(), u = R.origin.clone().sub(L.origin), len = u.length();
-      if (len > 0.08) {                                    // tips far enough apart to read the wall's angle
-        u.divideScalar(len); n2.addScaledVector(u, -n2.dot(u)).normalize();
-        if (n2.angleTo(n) > 0.26) { say('The two tips don\'t agree. Hold both flat against the wall and try again.'); haptic(inp.src, 0.3, 40); return true; }
-      }
-      var turn = n2.angleTo(n) * 180 / Math.PI, mid = L.origin.clone().add(R.origin).multiplyScalar(0.5);
-      var before = art.position.clone();
-      art.position.addScaledVector(n2, mid.clone().sub(art.position).dot(n2));
-      var d = art.position.clone().sub(before).dot(n2);
-      st.surface.normal = n2; st.surface.point.copy(art.position); applyOrientation(); moved();
-      if (st.surface.fromHit) saveDepthFix(depthFix + (dl + dr) / 2);
-      haptic(L.src, 0.7, 70); haptic(R.src, 0.7, 70); changed();
-      say((Math.abs(d) < 0.003 ? 'Snapped: it was already on the wall' : 'Snapped to the wall: ' + (d > 0 ? 'pulled out ' : 'pushed in ') + (Math.abs(d) * 100).toFixed(1) + ' cm')
-        + (turn >= 0.5 ? ', straightened ' + turn.toFixed(1) + '°' : '') + '. Moving it keeps the depth.');
-      return true;
     }
     function cycleLook() {
       var keys = WT.LOOKS.map(function (l) { return l.key; });
@@ -634,6 +756,15 @@
       var o = WT.OPACITIES, i = 0, best = 9;
       o.forEach(function (v, k) { if (Math.abs(v - S.opacity) < best) { best = Math.abs(v - S.opacity); i = k; } });
       S.opacity = o[(i + 1) % o.length]; applyVis(); say('Opacity ' + Math.round(S.opacity * 100) + '%');
+    }
+    function stepOpacity(d) {   // step 3 menu: Fainter / Stronger through the same steps as the editor
+      var o = WT.OPACITIES.slice().sort(function (a, b) { return a - b; }), i = 0, best = 9;
+      o.forEach(function (v, k) { if (Math.abs(v - S.opacity) < best) { best = Math.abs(v - S.opacity); i = k; } });
+      S.opacity = o[Math.max(0, Math.min(o.length - 1, i + d))]; applyVis(); say('Opacity ' + Math.round(S.opacity * 100) + '%');
+    }
+    function setLook(k) {
+      S.look = k; say('Look: ' + WT.lookLabel(k) + '…');
+      setTimeout(function () { if (!alive) return; refreshArt(); say('Look: ' + WT.lookLabel(S.look)); changed(); }, 30);
     }
     function toggleShown() {
       if (st.phase === 'place') { say('Place the picture first.'); return; }
@@ -690,8 +821,9 @@
     /* ================================================================== flat mode: HUD, toolbar, mouse + keys */
     function hint() {
       if (st.phase === 'place') return 'Click the wall (or the table) to put your picture there.';
-      if (st.phase === 'adjust') return 'Drag to move · scroll to resize · Q / E to turn · then Lock.';
-      return st.pencil ? 'Draw on the wall to trace · H hides the picture · scroll to zoom.' : 'H hides the picture · drag to look around.';
+      if (st.phase === 'adjust') return 'Step 1: drag to move · scroll to resize · Q / E to turn · then Next.';
+      if (st.phase === 'fit') return 'Step 2: click a corner or edge · scroll or ↑ ↓ to push it in or out · ← → next point.';
+      return st.pencil ? 'Step 3: pick a look and opacity · draw on the wall to trace · H hides the picture · scroll to zoom.' : 'H hides the picture · drag to look around.';
     }
     function drawHud() {
       ov.innerHTML = '<div class="tr-hud"><button class="tr-x" data-x aria-label="Leave">' + UI.icon('x') + '</button>' +
@@ -756,6 +888,9 @@
       if (st.phase === 'place') {
         var h = pickFlat(e.clientX, e.clientY, surfaces());
         if (h) placeAt(h.point, hitNormal(h), false); else say('Click on the wall or the table.');
+      } else if (st.phase === 'fit') {
+        var hf = art.visible ? pickFlat(e.clientX, e.clientY, [artMesh]) : null;
+        if (hf) selectHandle(handleAtUv(hf.uv));
       } else if (st.phase === 'locked' && S.grid && !(d && d.kind === 'pencil')) {
         var ha = pickFlat(e.clientX, e.clientY, [artMesh]);
         if (ha) cellAtUv(ha.uv);
@@ -769,6 +904,7 @@
       if (st.mode !== 'flat') return;
       e.preventDefault();
       if (st.phase === 'adjust') resizeBy(e.deltaY < 0 ? 1.03 : 1 / 1.03);
+      else if (st.phase === 'fit') { pushSel(e.deltaY < 0 ? -0.001 : 0.001); flushFit(); throttleSay(handleText()); }
       else { flat.fov = Math.max(22, Math.min(75, flat.fov + (e.deltaY > 0 ? 3 : -3))); camera.fov = flat.fov; camera.updateProjectionMatrix(); }
     }
     var KEYS = { h: 'toggle', ' ': 'toggle', g: 'grid', l: null, o: 'opacity', m: 'look', s: 'spot', d: 'cell', b: 'blink', c: 'marks', p: 'pencil', q: 'turnL', e: 'turnR', '+': 'bigger', '=': 'bigger', '-': 'smaller', arrowright: 'next', arrowleft: 'prev' };
@@ -776,8 +912,14 @@
       if (st.mode !== 'flat' || e.target.matches && e.target.matches('input, textarea, select')) return;
       var k = (e.key || '').toLowerCase();
       if (k === 'escape') { finish(); return; }
-      if (k === 'l') { act(st.phase === 'locked' ? 'unlock' : st.phase === 'adjust' ? 'lock' : ''); return; }
+      if (k === 'l' || k === 'enter') { act(st.phase === 'locked' ? 'unlock' : st.phase === 'adjust' ? 'step2' : st.phase === 'fit' ? 'step3' : ''); return; }
+      if (st.phase === 'fit' && /^arrow/.test(k)) {
+        e.preventDefault();
+        if (k === 'arrowup' || k === 'arrowdown') act(k === 'arrowup' ? 'in' : 'out'); else cycleHandle(k === 'arrowright' ? 1 : -1);
+        return;
+      }
       var a = KEYS[k];
+      if (st.phase === 'locked' && (a === 'look' || a === 'opacity')) { e.preventDefault(); act(a); return; }
       if (!a) return;
       if (actions().some(function (x) { return x.id === a; }) || a === 'toggle') { e.preventDefault(); act(a); }
     }
@@ -840,7 +982,8 @@
       var handle = null, phase = null;
       try { handle = localStorage.getItem(AKEY + P.id); phase = localStorage.getItem(PKEY + P.id); } catch (e) {}
       if (handle && s.restorePersistentAnchor) {
-        xr.restoring = true; st.phase = phase === 'adjust' ? 'adjust' : 'locked'; art.visible = false;
+        xr.restoring = true; st.phase = phase === 'adjust' || phase === 'fit' ? phase : 'locked'; art.visible = false;
+        loadFit();
         // every reply below checks it still belongs to this session: a late one from a session you already left
         // would hand three.js objects from the old session
         s.restorePersistentAnchor(handle).then(function (a) {
@@ -966,7 +1109,8 @@
           if (xr.anchorFresh) {
             xr.anchorFresh = false; xr.restoring = false;
             S.rot = S.rot || 0; applyVis(); changed();
-            say(st.phase === 'locked' ? 'Back where you left it. Press A or X to hide or show.' : 'Back where you left it. Click the right stick to lock it.');
+            placeHandles();
+            say(st.phase === 'locked' ? 'Back where you left it. Press A or X to hide or show.' : 'Back where you left it. Click the right stick for the next step.');
           }
         } else if (!xr.restoring) {
           xr.lostT += dt;
@@ -1009,6 +1153,17 @@
           var ah = rc.intersectObject(artMesh, false)[0];
           if (ah) inp.artHit = { uv: ah.uv, dist: ah.distance };
         }
+        // step 2: the corner / edge this ray points at (a dot within 4 cm of the ray, else the nearest to where it meets the picture)
+        if (st.phase === 'fit' && !inp.isHand && !inp.panelHit && art.visible) {
+          var bk = null, bd = 0.04;
+          HORDER.forEach(function (k) {
+            var wp = handleMeshes[k].getWorldPosition(new V3()), t = wp.clone().sub(origin).dot(dir);
+            if (t <= 0) return;
+            var d = origin.clone().addScaledVector(dir, t).distanceTo(wp);
+            if (d < bd) { bd = d; bk = k; }
+          });
+          inp.handle = bk || (inp.artHit ? handleAtUv(inp.artHit.uv) : null);
+        }
         // the ray: while placing / lining up, with the menu open, or aiming at a grid square; hands only with the menu open
         var ray = rayLine(h), showRay = st.panel || (!inp.isHand && (st.phase !== 'locked' || (S.grid && inp.artHit)));
         ray.visible = showRay;
@@ -1040,6 +1195,10 @@
         var tipSrc = xr.inputs.right || xr.inputs.left;
         tipDot.visible = st.method === 'touch' && !!tipSrc && !tipSrc.isHand;
         if (tipDot.visible) tipDot.position.copy(tipSrc.origin);
+      } else if (st.phase === 'fit') {
+        reticle.visible = false; tipDot.visible = false;
+        var hv = (xr.inputs.right && xr.inputs.right.handle) || (xr.inputs.left && xr.inputs.left.handle) || null;
+        if (hv !== handleHover) { handleHover = hv; placeHandles(); }
       } else if (st.phase === 'adjust' && aim && !xr.grab) {
         reticle.visible = true; reticle.scale.setScalar(0.6); reticle.position.copy(aim.hit.pos);
         reticle.quaternion.setFromUnitVectors(ZAX, aim.hit.normal); tipDot.visible = false;
@@ -1051,13 +1210,13 @@
     /* Every controller button does something; the floating labels over the controllers say what, step by step.
        Buttons (xr-standard): 0 trigger (handled by 'select'), 1 grip, 3 stick click, 4 A / X, 5 B / Y. */
     function pad(src, h, inp, dt) {
-      var gp = src.gamepad, prev = xr.buttons[h] || [], now = [], b = gp.buttons, L = h === 'left', t = performance.now();
+      var gp = src.gamepad, prev = xr.buttons[h] || [], now = [], b = gp.buttons, L = h === 'left', t = performance.now(), ph = st.phase;
       for (var i = 0; i < b.length; i++) now[i] = !!(b[i] && b[i].pressed);
       xr.buttons[h] = now;
       function down(k) { return now[k] && !prev[k]; }
       function up(k) { return !now[k] && prev[k]; }
       // A / X: hide / show (while placing: float it in front of you)
-      if (down(4)) { if (st.phase === 'place') act('m-float'); else { toggleShown(); changed(); } }
+      if (down(4)) { if (ph === 'place') act('m-float'); else { toggleShown(); changed(); } }
       // Y: tap = menu, hold = leave VR · B: opacity
       if (L) {
         if (down(5)) { xr.yDown = t; xr.yWarned = false; }
@@ -1068,22 +1227,22 @@
         }
         if (up(5) && xr.yDown) { if (t - xr.yDown < 450) togglePanel(); else say('Staying in VR'); xr.yDown = 0; }
       } else if (down(5)) { cycleOpacity(); changed(); }
-      // stick click: right = lock / unlock, left = grid
+      // stick click: right = next step (from step 3: back to step 2), left = back a step
       if (down(3)) {
-        if (L) act('grid');
-        else if (st.phase === 'adjust') act('lock');
-        else if (st.phase === 'locked') act('unlock');
-        else say('Place it first: point at the wall and pull the trigger.');
+        if (ph === 'place') say('Place it first: point at the wall and pull the trigger.');
+        else if (!L) goStep(ph === 'adjust' ? 2 : ph === 'fit' ? 3 : 2);
+        else if (ph === 'adjust') say('This is step 1. Click the right stick for step 2.');
+        else goStep(ph === 'fit' ? 1 : 2);
       }
-      // grip: placing = grab it out of the air · lining up = drag it · locked = hold to peek behind it
+      // grip: placing = grab it out of the air · step 1 = drag it · steps 2 and 3 = hold to peek behind it
       if (down(1)) {
-        if (st.phase === 'place' && inp.grip) {
+        if (ph === 'place' && inp.grip) {
           var n = headPos().sub(inp.grip); n.y = 0; if (n.lengthSq() < 1e-4) n.set(0, 0, 1);
           placeAt(inp.grip.clone(), n.normalize(), true);
           xr.grab = { h: h, start: inp.origin.clone(), from: art.position.clone() };
-        } else if (st.phase === 'adjust' && st.surface) {
+        } else if (ph === 'adjust' && st.surface) {
           xr.grab = { h: h, start: inp.origin.clone(), from: art.position.clone() }; moved();
-        } else if (st.phase === 'locked') { st.peek = h; applyVis(); }
+        } else if (ph === 'locked' || ph === 'fit') { st.peek = h; applyVis(); }
       }
       if (st.peek === h && !now[1]) { st.peek = false; applyVis(); }
       if (xr.grab && xr.grab.h === h) {
@@ -1100,26 +1259,39 @@
       if (!ax && !ay) {
         xr.stickLatch[h] = false;
         if (xr.opDirty && !L) { xr.opDirty = false; applyVis(); changed(); }
+        if (!L && st.fit.dirty) { flushFit(); changed(); }
       }
-      if (st.phase !== 'locked') {
-        if (!L && (ax || ay)) {                                   // right stick: size ↕, turn ↔
+      if (ph === 'place' || ph === 'adjust') {
+        if (!L && (ax || ay)) {                                   // step 1, right stick: size ↕, turn ↔
           st.dirty = true;
           if (ay) { S.width_cm = Math.max(5, Math.min(1000, S.width_cm * (1 - ay * dt * 0.7))); applySize(); }
-          if (ax && st.phase === 'adjust') { S.rot = Math.max(-180, Math.min(180, S.rot + ax * dt * 20)); if (Math.abs(S.rot) < 0.6) S.rot = 0; applyOrientation(); moved(); }
+          if (ax && ph === 'adjust') { S.rot = Math.max(-180, Math.min(180, S.rot + ax * dt * 20)); if (Math.abs(S.rot) < 0.6) S.rot = 0; applyOrientation(); moved(); }
           throttleSay(WT.fmtSize(pseudo()) + (S.rot ? ' · turned ' + Math.round(S.rot) + '°' : ''));
-        } else if (L && (ax || ay) && st.phase === 'adjust' && st.surface) {   // left stick: slide it along the wall
+        } else if (L && (ax || ay) && ph === 'adjust' && st.surface) {   // step 1, left stick: slide it along the wall
           var q0 = orientation(st.surface.normal, 0, art.position);
           art.position.addScaledVector(new V3(1, 0, 0).applyQuaternion(q0), ax * dt * 0.25)
             .addScaledVector(new V3(0, 1, 0).applyQuaternion(q0), -ay * dt * 0.25);
           moved(); throttleSay('Sliding it along the wall');
         }
-      } else if (!L) {                                            // locked, right stick: opacity ↕, look ↔
+      } else if (ph === 'fit') {
+        if (L) {                                                  // step 2, left stick: point it at a corner / edge to pick it
+          if (Math.hypot(ax, ay) > 0.6) {
+            var sec = Math.round(Math.atan2(-ay, ax) / (Math.PI / 4));
+            var k = SECTOR[(sec % 8 + 8) % 8];
+            if (k !== st.fit.sel) selectHandle(k);
+          }
+        } else {                                                  // step 2, right stick: ↕ push in / pull out, ↔ next point
+          if (ay && Math.abs(ay) >= Math.abs(ax)) {
+            pushSel(ay * Math.abs(ay) * dt * 0.03, src);         // forward = into the wall; up to 3 cm a second, gentle near the middle
+            throttleSay(handleText());
+          } else if (!latch && Math.abs(ax) > 0.7) { xr.stickLatch[h] = true; cycleHandle(ax > 0 ? 1 : -1); }
+        }
+      } else if (!L) {                                            // step 3, right stick: opacity ↕, look ↔
         if (ay) { S.opacity = Math.max(0.1, Math.min(1, S.opacity - ay * dt * 0.8)); artMesh.material.opacity = S.opacity; st.dirty = true; xr.opDirty = true; throttleSay('Opacity ' + Math.round(S.opacity * 100) + '%'); }
         if (!latch && Math.abs(ax) > 0.7) { cycleLook(); xr.stickLatch[h] = true; }
-      } else if (!latch && (Math.abs(ax) > 0.7 || Math.abs(ay) > 0.7)) {   // locked, left stick: the spotlight square
+      } else if (st.spot && !latch && (Math.abs(ax) > 0.7 || Math.abs(ay) > 0.7)) {   // step 3, left stick: the spotlight square
         xr.stickLatch[h] = true;
-        if (!st.spot) act('spot');
-        else if (Math.abs(ax) > 0.7) moveSpot(ax > 0 ? 1 : -1);
+        if (Math.abs(ax) > 0.7) moveSpot(ax > 0 ? 1 : -1);
         else moveSpot((ay > 0 ? 1 : -1) * WT.grid(pseudo()).cols);
         changed();
       }
@@ -1141,20 +1313,25 @@
         else if (st.method === 'float') placeFloat();
         return;
       }
+      if (st.phase === 'fit') {
+        if (snapToTip(inp)) return;                                   // a controller tip on the real wall at a corner
+        if (inp && inp.handle) { selectHandle(inp.handle); return; }   // pointing at a corner / edge: pick it
+        say('Point at a corner or edge of the picture and pull the trigger, or pick one with the left stick.');
+        return;
+      }
       if (st.phase === 'adjust') {
-        if (touchDepth(inp)) return;
         if (inp && inp.hit) { stickAt(inp.hit); return; }
         say(xr.hasHitTest ? 'No wall found there. Aim at the wall, or hold grip and drag it.' : 'Hold grip and drag it, or choose Place again in the menu.');
         return;
       }
       if (src.hand) { toggleShown(); return; }
       if (S.grid && inp && inp.artHit) { cellAtUv(inp.artHit.uv); return; }
-      say('It\'s locked. Click the right stick to unlock it and move it.');
+      say('This is step 3. Click a stick to go back to step 2.');
     }
 
     /* the menu: a tablet above your left controller (or floating in front of you, never inside the wall).
        The canvas is a fixed size (this three.js can't grow a texture): fewer buttons leave the top see-through. */
-    var PANEL_ROWS = 5, PANEL_HAND = 0.34, PANEL_FLOAT = 0.46;
+    var PANEL_ROWS = 6, PANEL_HAND = 0.34, PANEL_FLOAT = 0.46;
     function panelLayout(list) {
       var cols = 4, bw = 228, bh = 92, gap = 14, top = 196, foot = 58, rows = Math.max(1, Math.ceil(list.length / cols));
       var H = top + PANEL_ROWS * (bh + gap) + foot, used = top + rows * (bh + gap) + foot;
@@ -1170,23 +1347,26 @@
       g.fillStyle = '#2a2522'; g.font = '600 42px Fraunces, Georgia, serif'; g.textBaseline = 'alphabetic';
       g.fillText(P.title.length > 26 ? P.title.slice(0, 25) + '…' : P.title, 40, oy + 62);
       g.fillStyle = '#6c6158'; g.font = '500 26px Inter, Arial, sans-serif'; g.textAlign = 'right';
-      g.fillText(WT.fmtSize(pseudo()), PANEL_W - 40, oy + 60); g.textAlign = 'left';
-      // where you are: 1 place, 2 line up, 3 trace
+      var cur = stepOf(st.phase);
+      g.fillText(cur === 2 ? HANDLES[st.fit.sel].label : cur === 3 ? 'Opacity ' + Math.round(S.opacity * 100) + '%' : WT.fmtSize(pseudo()), PANEL_W - 40, oy + 60); g.textAlign = 'left';
+      // where you are: the three steps (once it's placed, press one to jump there)
       var sx = 40;
-      [['place', '1  Place'], ['adjust', '2  Line up'], ['locked', '3  Trace']].forEach(function (sp) {
-        var cur = st.phase === sp[0];
-        g.font = (cur ? '700' : '500') + ' 26px Inter, Arial, sans-serif';
+      xr.panelButtons = [];
+      [[1, '1  Place & size'], [2, '2  Fit corners'], [3, '3  Look & trace']].forEach(function (sp) {
+        var on = cur === sp[0], hov = hover === 'step' + sp[0];
+        g.font = (on ? '700' : '500') + ' 26px Inter, Arial, sans-serif';
         var w = g.measureText(sp[1]).width + 40;
-        g.fillStyle = cur ? '#2f8f83' : '#ebe3d7'; roundRect(g, sx, oy + 84, w, 46, 23); g.fill();
-        g.fillStyle = cur ? '#ffffff' : '#6c6158'; g.fillText(sp[1], sx + 20, oy + 116);
+        g.fillStyle = on ? '#2f8f83' : hov ? '#ddd3c4' : '#ebe3d7'; roundRect(g, sx, oy + 84, w, 46, 23); g.fill();
+        g.fillStyle = on ? '#ffffff' : '#6c6158'; g.fillText(sp[1], sx + 20, oy + 116);
+        if (st.phase !== 'place' && !on) xr.panelButtons.push({ id: 'step' + sp[0], x: sx, y: oy + 84, w: w, h: 46 });
         sx += w + 12;
       });
       g.fillStyle = '#4a413a'; g.font = '500 25px Inter, Arial, sans-serif';
       var sub = st.phase === 'place' ? (st.method === 'touch' ? 'Touch the wall with a controller tip: centre first, then 2 more spots.' : 'Point at the wall and pull the trigger. Grip grabs it from the air.')
-        : st.phase === 'adjust' ? 'Trigger on the wall: move it there · grip: drag · right stick click: lock'
-          : 'A / X or a free-hand pinch: hide / show · grip: peek · right stick click: unlock';
+        : st.phase === 'adjust' ? 'Trigger: move it · right stick: size and turn · click it: step 2'
+          : st.phase === 'fit' ? 'Left stick: pick a corner · right stick: push in / pull out'
+            : 'Right stick: opacity ↕ look ↔ · A / X: hide · click a stick: back';
       g.fillText(sub, 40, oy + 170);
-      xr.panelButtons = [];
       list.forEach(function (a, i) {
         var col = i % L.cols, row = Math.floor(i / L.cols), x = L.left + col * (L.bw + L.gap), y = oy + L.top + row * (L.bh + L.gap);
         var isHover = hover === a.id;
@@ -1263,14 +1443,16 @@
     function tipLines(h) {
       var ph = st.phase, hit = xr.hasHitTest;
       if (h === 'right') {
-        if (ph === 'place') return [hit ? 'Trigger: stick it where you point' : 'Trigger: mark a point on the wall', 'Grip: grab it from the air', 'Stick up / down: size', 'A: float in front  ·  B: opacity'];
-        if (ph === 'adjust') return [hit ? 'Trigger: move it where you point' : 'Trigger: menu buttons', 'Grip (hold): drag it', 'Stick: size ↕  turn ↔', 'Click stick: LOCK', 'A: hide / show  ·  B: opacity'];
-        return [S.grid ? 'Trigger: tick a grid square' : 'Trigger: menu buttons', 'Grip (hold): peek behind it', 'Stick: opacity ↕  look ↔', 'Click stick: unlock', 'A: hide / show  ·  B: opacity'];
+        if (ph === 'place') return [hit ? 'Trigger: stick it where you point' : 'Trigger: mark a point on the wall', 'Grip: grab it from the air', 'Stick up / down: size', 'A: float in front'];
+        if (ph === 'adjust') return [hit ? 'Trigger: move it where you point' : 'Trigger: menu buttons', 'Grip (hold): drag it', 'Stick: size ↕  turn ↔', 'Click stick: STEP 2', 'A: hide / show'];
+        if (ph === 'fit') return ['Stick ↕: push in / pull out', 'Stick ↔: next corner or edge', 'Trigger: pick what you point at', 'Click stick: STEP 3', 'A: hide  ·  B: opacity'];
+        return [S.grid ? 'Trigger: tick a grid square' : 'Trigger: menu buttons', 'Stick: opacity ↕  look ↔', 'Grip (hold): peek behind it', 'Click stick: back to step 2', 'A: hide / show'];
       }
-      var l = ['Y: menu  ·  hold Y: leave VR'];
-      if (ph === 'place') return l.concat(['X: float in front', 'Click stick: grid']);
-      if (ph === 'adjust') return ['Stick: slide it on the wall', 'Grip (hold): drag it', '2 tips on wall + trigger: snap'].concat(l, ['X: hide / show  ·  click stick: grid']);
-      return ['Stick: move the spotlight square', 'Grip (hold): peek behind it'].concat(l, ['X: hide / show  ·  click stick: grid']);
+      var l = 'Y: menu  ·  hold Y: leave VR';
+      if (ph === 'place') return [l, 'X: float in front'];
+      if (ph === 'adjust') return ['Stick: slide it on the wall', 'Grip (hold): drag it', l, 'X: hide / show'];
+      if (ph === 'fit') return ['Stick: pick a corner or edge', 'Tip on wall + trigger: snap it', 'Grip (hold): peek behind it', l, 'Click stick: back to step 1'];
+      return (st.spot ? ['Stick: move the spotlight square'] : []).concat(['Grip (hold): peek behind it', l, 'X: hide  ·  click stick: step 2']);
     }
     var TIP_W = 560, TIP_H = 250, TIP_M = 0.16;
     function drawTip(m, lines) {
@@ -1380,15 +1562,15 @@
 
     /* ================================================================== intro + summary screens */
     function keysHtml(headset) {
-      return '<div class="tr-keys"><div><h4>' + UI.icon('headset') + 'Controllers</h4><ul>' +
-        '<li><b>Trigger</b>: stick it where you point (again any time to move it) · press menu buttons</li>' +
-        '<li><b>Grip</b> (hold): drag it · once locked: peek behind it</li>' +
-        '<li><b>Right stick</b>: size ↕, turn ↔ · <b>click</b>: lock / unlock</li>' +
-        '<li><b>Left stick</b>: slide it on the wall · <b>click</b>: grid</li>' +
-        '<li><b>A or X</b>: hide / show · <b>B</b>: opacity</li><li><b>Y</b>: menu · <b>hold Y</b>: leave VR, back to this page</li></ul></div>' +
+      return '<div class="tr-keys"><div><h4>' + UI.icon('headset') + 'Controllers: 3 steps</h4><ul>' +
+        '<li><b>1 Place &amp; size</b>: trigger sticks it where you point (again to move it) · right stick: size ↕, turn ↔ · left stick: slide</li>' +
+        '<li><b>2 Fit corners</b>: left stick picks a corner or edge (or point + trigger) · right stick ↕ pushes it in or out</li>' +
+        '<li><b>3 Look &amp; trace</b>: right stick: opacity ↕, look ↔ · A or X: hide / show · grip: peek</li>' +
+        '<li><b>Click the right stick</b>: next step · <b>left stick</b>: back a step</li>' +
+        '<li><b>Y</b>: menu · <b>hold Y</b>: leave VR, back to this page</li></ul></div>' +
         '<div><h4>' + UI.icon('hand') + 'Hands (controllers down)</h4><ul><li><b>Pinch</b> with your free hand: hide / show</li>' +
         '<li><b>Pinch and hold</b>: menu</li><li>Your pencil hand\'s pinches are ignored</li><li>Blink mode peeks for you</li></ul></div>' +
-        (headset ? '' : '<div><h4>' + UI.icon('grid') + 'Keyboard (this screen)</h4><ul><li><span class="wt-kbd">H</span> hide · <span class="wt-kbd">L</span> lock</li>' +
+        (headset ? '' : '<div><h4>' + UI.icon('grid') + 'Keyboard (this screen)</h4><ul><li><span class="wt-kbd">H</span> hide · <span class="wt-kbd">L</span> next step</li><li>Step 2: click a corner · <span class="wt-kbd">↑</span> <span class="wt-kbd">↓</span> push in / out</li>' +
         '<li><span class="wt-kbd">G</span> grid · <span class="wt-kbd">S</span> spotlight · <span class="wt-kbd">D</span> square done</li>' +
         '<li><span class="wt-kbd">Q</span> <span class="wt-kbd">E</span> turn · scroll: size / zoom</li><li><span class="wt-kbd">M</span> look · <span class="wt-kbd">O</span> opacity</li></ul></div>') +
         '</div>' + (headset ? '<p class="ui-note" style="margin-top:10px">No keyboard needed: every step works with the controllers, and labels over them show what each button does.</p>' : '');
@@ -1459,8 +1641,11 @@
 
     window.WT_TRACE = {
       state: function () { return { mode: st.mode, phase: st.phase, shown: st.shown, spot: st.spot, grid: S.grid, width: S.width_cm, opacity: S.opacity, look: S.look, done: (P.done || []).slice(), activeMs: st.activeMs, visible: !!(artMesh && art.visible && artMesh.visible),
-        anchored: !!xr.anchor, panel: st.panel, rot: S.rot, pos: art ? art.position.toArray().map(function (v) { return Math.round(v * 1000) / 1000; }) : null }; },
+        anchored: !!xr.anchor, panel: st.panel, rot: S.rot, step: stepOf(st.phase), fit: st.fit.offs.slice(), sel: st.fit.sel,
+        handles: Object.keys(handleMeshes).filter(function (k) { return handleMeshes[k].visible; }).length,
+        corner: artMesh ? Math.round(artMesh.geometry.attributes.position.getZ(0) * 1000) : null, pos: art ? art.position.toArray().map(function (v) { return Math.round(v * 1000) / 1000; }) : null }; },
       act: act,
+      select: function (k) { selectHandle(k, true); },
       /* place at a point of the screen (fractions of width/height), as a click would */
       placeAt: function (fx, fy) {
         var r = cv.getBoundingClientRect(), h = pickFlat(r.left + r.width * fx, r.top + r.height * fy, surfaces());
