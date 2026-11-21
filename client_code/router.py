@@ -24,12 +24,15 @@ PAGES = {
     "guide": (None, "Guide"),
     "edit": (None, "Adjust"),
     "trace": (None, "Trace"),
+    "project": (None, "Projector"),
+    "mockup": (None, "See it on my wall"),
+    "print": (None, "Print at real size"),
     "profile": ("user", "Your profile"),
     "admin": ("admin", "Admin"),
 }
 NAV = [("studio", "Studio", "image"), ("library", "Library", "layers"), ("showcase", "Showcase", "heart"),
        ("guide", "Guide", "info")]
-CHROMELESS = {"trace"}
+CHROMELESS = {"trace", "project"}
 APP_NAME = "WallTracer"
 _r: dict = {"after": "", "listening": False, "page": ""}
 
@@ -60,6 +63,15 @@ def _form(name):
     if name == "trace":
         from .Pages.Trace import Trace
         return Trace
+    if name == "project":
+        from .Pages.Project import Project
+        return Project
+    if name == "mockup":
+        from .Pages.Mockup import Mockup
+        return Mockup
+    if name == "print":
+        from .Pages.Print import Print
+        return Print
     if name == "profile":
         from .Pages.Profile import Profile
         return Profile

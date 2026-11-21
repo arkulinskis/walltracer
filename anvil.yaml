@@ -515,14 +515,15 @@ native_deps:
     <!-- Prepsto feedback panel: every "Submit feedback" link and button opens it (it is the only feedback channel). No floating button, no cookies, nothing loads until it is opened. Codes: APP_MAKER/prepsto-links.json -->
     <script src="https://prepsto.com/_/theme/widget.js" data-prepsto="4rxd8g8" data-button="false" data-label="Submit feedback" async></script>
     <link rel="stylesheet" href="_/theme/icons.css?v=9c72f18e53">
-    <link rel="stylesheet" href="_/theme/app.css?v=969758c972">
+    <link rel="stylesheet" href="_/theme/app.css?v=44f2dce678">
     <script src="_/theme/app-kit.js?v=be0fc81ea1"></script>
     <script src="_/theme/wt-kit.js?v=52999edbda"></script>
     <script src="_/theme/wt.js?v=8318697fcd"></script>
     <script src="_/theme/imagetracer.js?v=4c966c169d"></script>
     <script src="_/theme/wt-vector.js?v=71d0968f05"></script>
     <script src="_/theme/ark-music.js?v=4ee0f1e082"></script>
-    <script src="_/theme/wt-screens.js?v=8c115635af"></script>
+    <script src="_/theme/wt-screens.js?v=32cceb01fb"></script>
+    <script src="_/theme/wt-flat.js?v=d06054e225"></script>
 package_name: WallTracer
 runtime_options:
   client_version: '3'

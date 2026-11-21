@@ -940,3 +940,82 @@ anvil-dropzone { display: contents; }
 /* item roots fill their grid cell (Anvil may give a form root its own display) */
 :is(.anvil-role-lb-grid, .anvil-role-st-grid, .anvil-role-ad-sc, .anvil-role-lp-show, .anvil-role-st-starters) > div > * { display: block; width: 100%; min-width: 0; }
 .lb-card-wrap > .lb-card, anvil-dropzone > .lb-card { width: 100%; }
+
+/* ===== no-headset ways onto the wall (wt-flat.js, 2026-11-20): projector & lightbox, see it on my wall, print ===== */
+.ed-ways { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--c-line); display: grid; gap: 8px; }
+.tr-ways { margin-top: 10px; align-items: center; }
+.fl-head { flex: 1; min-width: 0; }
+.fl-head h1 { font: 650 1.6rem/1.2 var(--font-display); margin: 0; }
+.fl-head p { margin: 2px 0 0; }
+.pin-art { position: absolute; left: 0; top: 0; transform-origin: 0 0; touch-action: none; cursor: move; max-width: none; width: auto; height: auto; }
+.pin-h { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0; background: transparent;
+  cursor: grab; touch-action: none; display: grid; place-items: center; z-index: 2; }
+.pin-h span { width: 26px; height: 26px; border-radius: 50%; background: var(--c-brand); color: #fff; border: 2px solid #fff; display: grid; place-items: center;
+  font: 700 .78rem/1 var(--font-body); box-shadow: 0 4px 14px rgba(0,0,0,.35); transition: transform var(--dur-press) var(--ease-out); }
+.pin-h:focus-visible { outline: none; }
+.pin-h:focus-visible span, .pin-h:hover span { transform: scale(1.18); }
+.dragging .pin-h { cursor: grabbing; }
+
+/* projector: full screen */
+.page-project .ui-main { position: fixed; inset: 0; }
+.page-project .ui-main > *, .wt-project-page, .wt-project-page .wt-screen-host { height: 100%; }
+.pj { position: fixed; inset: 0; background: #000; color: #fff; overflow: hidden; }
+.pj.lightbox { background: #fff; }
+.pj-load { position: absolute; inset: 0; display: grid; place-content: center; gap: 10px; justify-items: center; color: #bbb; }
+.pj-stage { position: absolute; inset: 0; overflow: hidden; }
+.pj-tip { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 24px)); background: rgba(24, 21, 19, .82);
+  border-radius: 16px; padding: 10px 14px; font-size: .86rem; line-height: 1.4; pointer-events: none; }
+.pj-tip span { display: block; opacity: .85; margin-top: 2px; }
+.pj-bar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px; max-width: calc(100vw - 24px); display: flex; gap: 6px; padding: 7px;
+  background: rgba(250, 247, 242, .95); border-radius: 20px; box-shadow: 0 16px 40px rgba(0,0,0,.35); overflow-x: auto; scrollbar-width: none; }
+.pj-bar button { flex: none; border: 0; background: transparent; color: #2a2522; border-radius: 13px; padding: 7px 9px; min-width: 62px; cursor: pointer;
+  display: grid; justify-items: center; gap: 3px; font: 600 .75rem/1.1 var(--font-body); white-space: nowrap; }
+.pj-bar button b { font-weight: 600; }
+.pj-bar button .ui-ic { width: 21px; height: 21px; }
+.pj-bar button:hover { background: #ece4d8; }
+.pj-bar button.on { background: #d8ece8; color: #1f6b62; }
+.pj-bar button.primary { background: #c4552d; color: #fff; }
+.pj-unlock { position: absolute; right: 14px; bottom: 14px; width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(60, 55, 50, .55); color: #fff;
+  display: none; place-items: center; cursor: pointer; opacity: .25; transition: opacity var(--dur-base) var(--ease-out); }
+.pj.locked .pj-bar, .pj.locked .pj-tip, .pj.locked .pin-h { display: none; }
+.pj.locked .pin-art { cursor: default; pointer-events: none; }
+.pj.locked .pj-unlock { display: grid; }
+.pj.locked.awake .pj-unlock, .pj-unlock:focus-visible { opacity: 1; }
+@media (max-width: 520px) { .pj-tip span { display: none; } }
+
+/* see it on my wall */
+.mk-stage { position: relative; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--c-line); box-shadow: var(--shadow); background: #222; touch-action: none; user-select: none; }
+.mk-stage img[data-photo] { display: block; width: 100%; height: auto; max-height: 72vh; object-fit: contain; pointer-events: none; }
+.mk-empty { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 48px 20px; border: 2px dashed var(--c-line); border-radius: var(--radius);
+  background: var(--c-surface); cursor: pointer; color: var(--c-muted); }
+.mk-empty .ui-ic { width: 36px; height: 36px; color: var(--c-brand); }
+.mk-empty b { font: 650 1.2rem/1.2 var(--font-display); color: var(--c-ink); }
+.mk-empty span:not(.ui-btn) { max-width: 36ch; font-size: .9rem; }
+.mk-empty:hover { border-color: var(--c-brand); }
+.ed-panel label.ui-btn { cursor: pointer; }
+
+/* print at real size */
+.pr-stage { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--c-line); box-shadow: var(--shadow); background: #f4f1ec; }
+.pr-stage canvas { display: block; width: 100%; height: auto; }
+.pr-opts { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.pr-sum { margin: 10px 0; font-variant-numeric: tabular-nums; }
+.pr-grid { background: var(--c-surface-2); border-radius: var(--radius-sm); padding: 10px 12px; margin: 10px 0 12px; overflow-wrap: anywhere; }
+.pr-grid p { margin: 0 0 6px; }
+.pr-grid p:last-child { margin: 0; }
+.wt-print-sheets { display: none; }
+@media print {
+  html.wt-printing, html.wt-printing body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+  html.wt-printing body::before, html.wt-printing body::after { display: none !important; }
+  html.wt-printing body > *:not(.wt-print-sheets) { display: none !important; }
+  html.wt-printing .wt-print-sheets { display: block; color: #222; font: 11pt/1.4 Inter, Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pr-sheet { box-sizing: border-box; position: relative; overflow: hidden; break-after: page; page-break-after: always; }
+  .pr-sheet:last-child { break-after: auto; page-break-after: auto; }
+  .pr-sheet img { display: block; }
+  .pr-sheet h1 { font: 700 18pt/1.2 Fraunces, Georgia, serif; margin: 0 0 4pt; }
+  .pr-sheet p { margin: 0 0 6pt; }
+  .pr-map { max-width: 100%; max-height: 170mm; margin: 6pt 0 10pt; border: 0.3mm solid #bbb; }
+  .pr-cal { display: flex; align-items: center; gap: 2mm; margin-top: 4mm; }
+  .pr-cal.in { position: absolute; left: calc(8mm + 3mm); bottom: calc(8mm + 3mm); margin: 0; background: rgba(255,255,255,.85); padding: 1mm; }
+  .pr-ruler { width: 50mm; height: 5mm; display: block; }
+  .pr-rtext { font-size: 7pt; color: #555; }
+}

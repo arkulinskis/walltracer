@@ -44,7 +44,11 @@
         '<div class="ed-main"><div class="ed-stage-wrap"><div class="ed-stage" data-stage><canvas data-cv></canvas><span class="size" data-size></span><span class="busy" data-busy hidden>Drawing…</span></div>' +
         '<div class="ed-under"><span class="small muted">Wall colour (preview only)</span><div class="wt-swatches">' + WT.WALLS.map(function (w) {
           return '<button class="wt-swatch' + (S.wall === w[0] ? ' on' : '') + '" style="background:' + w[0] + '" data-wall="' + w[0] + '" title="' + esc(w[1]) + '" aria-label="' + esc(w[1]) + '"></button>';
-        }).join('') + '</div></div></div>' +
+        }).join('') + '</div></div>' +
+        '<div class="ed-ways"><span class="small muted">No headset? Other ways onto the wall</span><div class="ui-row">' +
+        '<a class="ui-btn sm" href="#project/' + esc(P.id) + '" data-go="project/' + esc(P.id) + '">' + UI.icon('sun') + 'Projector or tablet</a>' +
+        '<a class="ui-btn sm" href="#mockup/' + esc(P.id) + '" data-go="mockup/' + esc(P.id) + '">' + UI.icon('camera') + 'See it on my wall</a>' +
+        '<a class="ui-btn sm" href="#print/' + esc(P.id) + '" data-go="print/' + esc(P.id) + '">' + UI.icon('print') + 'Print at real size</a></div></div></div>' +
         '<div class="ed-panel">' +
         '<div class="ui-card"><h3>' + UI.icon('sparkle') + 'Look</h3><div class="ed-looks">' + WT.LOOKS.map(function (l) {
           return '<button data-look="' + l.key + '" class="' + (l.key === S.look ? 'on' : '') + '"><canvas data-lookcv="' + l.key + '" width="120" height="120"></canvas>' + esc(l.label) + '</button>';
@@ -1591,6 +1595,8 @@
         keysHtml(sup.ar || sup.vr) +
         '<div class="ui-row" style="margin-top:18px"><a class="ui-btn ghost sm" href="#edit/' + esc(P.id) + '" data-go="edit/' + esc(P.id) + '">' + UI.icon('sliders') + 'Adjust look and size</a>' +
         '<a class="ui-btn ghost sm" href="#studio" data-go="studio">' + UI.icon('back') + 'Studio</a><a class="ui-btn ghost sm" href="#guide" data-go="guide">' + UI.icon('info') + 'Guide</a></div>' +
+        '<div class="ui-row tr-ways"><span class="small muted">No headset?</span><a class="ui-btn ghost sm" href="#project/' + esc(P.id) + '" data-go="project/' + esc(P.id) + '">' + UI.icon('sun') + 'Projector or tablet</a>' +
+        '<a class="ui-btn ghost sm" href="#print/' + esc(P.id) + '" data-go="print/' + esc(P.id) + '">' + UI.icon('print') + 'Print at real size</a></div>' +
         '</div></div>';
     }
     function showSummary() {

@@ -101,6 +101,12 @@
       $('[data-look="lines"]').click();
       await sleep(600);
     }
+    // no-headset ways (wt-flat.js): projector & lightbox, see it on my wall, print at real size
+    await open('#project/' + encodeURIComponent(id), /corners|Lock/, { root: '.wt-screen-host', wait: 1200 });
+    if ($$('.pin-h').length !== 4 || !/matrix3d/.test(($('.pj [data-art]') || { style: {} }).style.transform)) bad.push(who + ' #project: no corner pin');
+    await open('#mockup/' + encodeURIComponent(id), /photo of your wall/i, { wait: 800 });
+    await open('#print/' + encodeURIComponent(id), /across/i, { wait: 1200 });
+    if (!$('[data-prev]') || !window.WT_FLAT.state().pages) bad.push(who + ' #print: no page plan');
     await open('#trace/' + encodeURIComponent(id), /practi|room|wall/i, { root: '.wt-screen-host', wait: 2000 });
     const head = $('.ui-header');
     if (head && head.offsetParent !== null) bad.push(who + ' #trace: the header should be hidden');
